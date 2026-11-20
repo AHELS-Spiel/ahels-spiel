@@ -10,3 +10,9 @@ später könn ma uns zusammenhocken und alle ideen besprechen was passt und was 
 - des spiel soll wie smash bros sein, also nix zu unpassendes
 - immer schon an wagner haten
 
+
+## wie mach ich des?
+
+- git clone https://github.com/jonasgoetzner/ahels-spiel.git
+- den eigenen ordner erstellen und ideen reinschreiben
+- git push
