@@ -13,6 +13,13 @@ später könn ma uns zusammenhocken und alle ideen besprechen was passt und was 
 
 ## wie mach ich des?
 
-- git clone https://github.com/jonasgoetzner/ahels-spiel.git
-- den eigenen ordner erstellen und ideen reinschreiben
-- git push
+```sh
+terminal aufmachen in dem ordner wo du des projekt haben willst
+git clone https://github.com/jonasgoetzner/ahels-spiel.git
+den eigenen ordner erstellen und ideen reinschreiben
+git add --all
+git commit -m "hier reinschreiben was du gemacht hast"
+git push
+
+```
+
