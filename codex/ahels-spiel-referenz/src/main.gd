@@ -77,6 +77,7 @@ var outcome_shown := false
 var heard_lesson := false
 var previous_keys := Vector2i.ZERO
 var frame_serial := 0
+var quitting := false
 var music: AudioStreamPlayer
 var track := ""
 var effects: Dictionary = {}
@@ -106,6 +107,7 @@ var last_port := str(DuelLink.DEFAULT_PORT)
 
 
 func _ready() -> void:
+	get_tree().auto_accept_quit = false
 	bind_menu_buttons()
 	catalog = ArenaCatalog.new()
 	view = ArenaView.new()
@@ -138,6 +140,19 @@ func bind_menu_buttons() -> void:
 		event.button_index = buttons[action]
 		if not InputMap.action_has_event(action, event):
 			InputMap.action_add_event(action, event)
+
+
+func _notification(what: int) -> void:
+	if what != NOTIFICATION_WM_CLOSE_REQUEST or not is_node_ready() or quitting:
+		return
+	quitting = true
+	set_physics_process(false)
+	set_process_input(false)
+	link.close()
+	stop_audio()
+	# Let the audio mixer retire active playback before destroying the scene.
+	await get_tree().create_timer(0.1).timeout
+	get_tree().quit()
 
 
 func _exit_tree() -> void:
@@ -215,7 +230,7 @@ func change_music(name: String) -> void:
 
 
 func repeat_music() -> void:
-	if not muted and DisplayServer.get_name() != "headless":
+	if not muted and not quitting and DisplayServer.get_name() != "headless":
 		music.play()
 
 
@@ -225,12 +240,16 @@ func apply_audio() -> void:
 		effect.volume_db = -9.9 + linear_to_db(maxf(0.0001, effects_level / 100.0))
 
 
+func stop_audio() -> void:
+	music.stop()
+	for effect: AudioStreamPlayer in effects.values():
+		effect.stop()
+
+
 func toggle_audio() -> void:
 	muted = not muted
 	if muted:
-		music.stop()
-		for effect: AudioStreamPlayer in effects.values():
-			effect.stop()
+		stop_audio()
 	else:
 		repeat_music()
 	save_settings()
@@ -258,7 +277,7 @@ func display_mode_text() -> String:
 
 
 func play_sound(cue: String) -> void:
-	if not muted and DisplayServer.get_name() != "headless" and effects.has(cue):
+	if not muted and not quitting and DisplayServer.get_name() != "headless" and effects.has(cue):
 		var player: AudioStreamPlayer = effects[cue]
 		player.play()
 
