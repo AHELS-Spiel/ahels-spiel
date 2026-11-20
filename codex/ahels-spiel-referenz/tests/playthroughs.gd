@@ -21,6 +21,8 @@ func run() -> void:
 	var passed := false
 	if "tournament" in args:
 		passed = play_tournament()
+	elif "survival" in args:
+		passed = play_survival()
 	else:
 		passed = play_campaign()
 	game.queue_free()
@@ -58,7 +60,10 @@ func play_campaign() -> bool:
 		if not press("Duell starten"):
 			return false
 		game.bout.rng.seed = 134 + chapter
-		fight()
+		var saw_warning := fight()
+		if chapter == ArenaApp.CAMPAIGN_ARENAS.size() and not saw_warning:
+			fail("Im Finale erschien keine Vorwarnung.")
+			return false
 		if game.bout.winner != 0:
 			fail("Niederlage in Kapitel %d" % chapter)
 			return false
@@ -116,6 +121,24 @@ func play_tournament() -> bool:
 	return true
 
 
+func play_survival() -> bool:
+	if not press("Überleben"):
+		return false
+	game.choose_fighter(9)
+	if not press("Überleben starten"):
+		return false
+	for wave in ArenaApp.SURVIVAL_DIFFICULTIES.size():
+		game.bout.rng.seed = 188 + wave
+		fight()
+		if game.bout.winner != 0:
+			fail("Überleben · Niederlage in Welle %d" % (wave + 1))
+			return false
+		print("OK Überleben · Welle ", wave + 1, " · Restversuche ", game.bout.fighters[0].stocks)
+		if not press("Nächste Welle" if wave < 4 else "Zum Hauptmenü"):
+			return false
+	return game.survival_best == ArenaApp.SURVIVAL_DIFFICULTIES.size()
+
+
 func advance(keys: int, frames: int = 1) -> void:
 	game.input_bits = keys
 	for _frame in frames:
@@ -129,15 +152,17 @@ func press(button_text: String) -> bool:
 	fail("Schaltfläche fehlt: " + button_text)
 	return false
 
-func fight() -> void:
+func fight() -> bool:
 	var bout := game.bout
 	var hero := bout.fighters[0]
 	var rival := bout.fighters[1]
 	var ground: Rect2 = bout.stage["surfaces"][0]
 	advance(0, 135)
+	var saw_warning := false
 	for frame in 9001:
 		if bout.winner != ArenaBout.ONGOING:
 			break
+		saw_warning = saw_warning or bout.boss_warning > 0.0
 		var dx := rival.p.x - hero.p.x
 		var dy := rival.p.y - hero.p.y
 		var target_side := ArenaBout.RIGHT if dx > 0 else ArenaBout.LEFT
@@ -168,6 +193,7 @@ func fight() -> void:
 		if frame % 2 == 0:
 			keys &= ~(ArenaBout.ATTACK | ArenaBout.SPECIAL | ArenaBout.JUMP | ArenaBout.DOWN)
 		advance(keys)
+	return saw_warning
 
 func fail(message: String) -> void:
 	push_error(message)

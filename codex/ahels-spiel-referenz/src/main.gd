@@ -20,7 +20,7 @@ const CAMPAIGN_ARENAS := ["pausenhof", "computerraum", "aula", "bibliothek"]
 const CAMPAIGN_OPPONENTS := [18, 12, 17, ArenaCatalog.BOSS]
 const CAMPAIGN_GOALS := [
 	"Treffer erhöhen den Rückstoßwert. Befördere die andere Figur über den Rand.",
-	"Nutze den Doppelsprung für die versetzten Plattformen. Mit S oder ↓ lässt du dich wieder fallen.",
+	"Nutze den Doppelsprung für die versetzten Plattformen. Mit der Falltaste kommst du wieder hinunter.",
 	"Gewinne das Bühnenduell. Weiche gegnerischen Spezialfähigkeiten aus und nutze deine eigene.",
 	"Spring über die Regalwelle. Weiche dem Kreidebogen seitlich aus und nutze Grimmers Pause zum Kontern.",
 ]
@@ -37,8 +37,6 @@ const GOALS := {
 }
 const MUSIC_DEFAULT := 55
 const EFFECTS_DEFAULT := 70
-const KEYS_ONE := [[KEY_A], [KEY_D], [KEY_W, KEY_SPACE], [KEY_F], [KEY_G], [KEY_Q, KEY_SHIFT], [KEY_S]]
-const KEYS_TWO := [[KEY_LEFT], [KEY_RIGHT], [KEY_UP], [KEY_J], [KEY_K], [KEY_L], [KEY_DOWN]]
 const GAMEPAD := [JOY_BUTTON_DPAD_LEFT, JOY_BUTTON_DPAD_RIGHT, JOY_BUTTON_A, JOY_BUTTON_X,
 	JOY_BUTTON_Y, JOY_BUTTON_B, JOY_BUTTON_DPAD_DOWN]
 
@@ -48,6 +46,7 @@ var link: DuelLink
 var ui: Control
 var bout: ArenaBout
 var screen := ""
+var home_focus := "Solo-Kampagne"
 var selection_mode := "campaign"
 var selected := Vector2i(0, 5)
 var picking := 0
@@ -86,13 +85,17 @@ var music_level := MUSIC_DEFAULT
 var effects_level := EFFECTS_DEFAULT
 var fullscreen := false
 var reduced_effects := false
-var settings_from_pause := false
-var controls_from_pause := false
+var pause_page := ""
+var keyboard := ArenaKeys.new()
+var key_capture := Vector2i(-1, -1)
+var binding_message: Label
 var fullscreen_button: Button
 var completed := false
 var lobby_status: Label
 var region: Label
 var ready_button: Button
+var rematch_button: Button
+var lobby_matchup: Label
 var end_connection_button: Button
 var host_button: Button
 var join_button: Button
@@ -103,13 +106,16 @@ var last_port := str(DuelLink.DEFAULT_PORT)
 
 
 func _ready() -> void:
+	bind_menu_buttons()
 	catalog = ArenaCatalog.new()
 	view = ArenaView.new()
 	view.catalog = catalog
+	view.keyboard = keyboard
 	add_child(view)
 	link = DuelLink.new()
 	link.name = "DuelLink"
-	link.arena_count = catalog.arenas.size()
+	for entry in catalog.arenas:
+		link.arena_ids.append(String(entry["id"]))
 	add_child(link)
 	link.lobby_updated.connect(refresh_lobby)
 	link.match_started.connect(network_bout)
@@ -122,6 +128,16 @@ func _ready() -> void:
 	view.reduced_effects = reduced_effects
 	show_home()
 
+
+
+func bind_menu_buttons() -> void:
+	var buttons := {"ui_accept": JOY_BUTTON_A, "ui_cancel": JOY_BUTTON_B}
+	for action: String in buttons:
+		var event := InputEventJoypadButton.new()
+		event.device = -1
+		event.button_index = buttons[action]
+		if not InputMap.action_has_event(action, event):
+			InputMap.action_add_event(action, event)
 
 
 func _exit_tree() -> void:
@@ -137,8 +153,8 @@ func load_settings() -> void:
 	var config := ConfigFile.new()
 	if config.load(SAVE_FILE) != OK:
 		return
-	muted = config.get_value("audio", "muted", false) == true
-	completed = config.get_value("campaign", "finished", false) == true
+	muted = saved_flag(config.get_value("audio", "muted", false))
+	completed = saved_flag(config.get_value("campaign", "finished", false))
 	tournament_wins = bounded_int(config.get_value("tournament", "wins", 0), 0, 0, 1000000)
 	survival_best = bounded_int(config.get_value("survival", "best_wave", 0), 0, 0, SURVIVAL_DIFFICULTIES.size())
 	var saved_goals: Variant = config.get_value("goals", "achieved", PackedStringArray())
@@ -146,8 +162,13 @@ func load_settings() -> void:
 		local_goals = saved_goals
 	music_level = bounded_int(config.get_value("audio", "music", MUSIC_DEFAULT), MUSIC_DEFAULT, 0, 100)
 	effects_level = bounded_int(config.get_value("audio", "effects", EFFECTS_DEFAULT), EFFECTS_DEFAULT, 0, 100)
-	fullscreen = config.get_value("display", "fullscreen", false) == true
-	reduced_effects = config.get_value("display", "reduced_effects", false) == true
+	fullscreen = saved_flag(config.get_value("display", "fullscreen", false))
+	reduced_effects = saved_flag(config.get_value("display", "reduced_effects", false))
+	keyboard.load_layouts(config.get_value("controls", "keyboard", []))
+
+
+func saved_flag(value: Variant) -> bool:
+	return value is bool and bool(value)
 
 
 func bounded_int(value: Variant, fallback: int, minimum: int, maximum: int) -> int:
@@ -162,6 +183,7 @@ func save_settings() -> void:
 	config.set_value("audio", "effects", effects_level)
 	config.set_value("display", "fullscreen", fullscreen)
 	config.set_value("display", "reduced_effects", reduced_effects)
+	config.set_value("controls", "keyboard", keyboard.layouts)
 	config.set_value("campaign", "finished", completed)
 	config.set_value("tournament", "wins", tournament_wins)
 	config.set_value("survival", "best_wave", survival_best)
@@ -277,7 +299,7 @@ func _physics_process(delta: float) -> void:
 
 
 func poll_controls(index: int) -> int:
-	var bindings: Array = KEYS_ONE if index == 0 else KEYS_TWO
+	var bindings: Array = keyboard.layouts[index]
 	var flags := 0
 	for n in bindings.size():
 		for key: int in bindings[n]:
@@ -304,6 +326,10 @@ func poll_controls(index: int) -> int:
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
+		if key_capture.x >= 0:
+			capture_binding(event.physical_keycode)
+			get_viewport().set_input_as_handled()
+			return
 		if event.physical_keycode == KEY_F11:
 			toggle_fullscreen()
 			get_viewport().set_input_as_handled()
@@ -332,12 +358,19 @@ func option_is_open() -> bool:
 
 
 func go_back() -> void:
-	if controls_from_pause:
-		show_settings(true)
+	if key_capture.x >= 0:
+		cancel_binding()
 		return
-	if settings_from_pause:
-		show_pause()
-		return
+	match pause_page:
+		"settings":
+			show_pause()
+			return
+		"controls":
+			show_settings(true)
+			return
+		"bindings":
+			show_controls()
+			return
 	match screen:
 		"bout":
 			if outcome_shown or heard_lesson:
@@ -351,8 +384,10 @@ func go_back() -> void:
 			show_selection("network")
 		"controls":
 			show_settings()
+		"bindings":
+			show_controls()
 		"rules":
-			show_selection("versus")
+			show_selection("versus", "Regeln")
 		"arenas":
 			leave_arena_picker()
 		"select", "settings", "chapter", "tournament_board", "goals":
@@ -360,7 +395,9 @@ func go_back() -> void:
 
 
 func make_ui() -> void:
+	key_capture = Vector2i(-1, -1)
 	fullscreen_button = null
+	rematch_button = null
 	if is_instance_valid(ui):
 		remove_child(ui)
 		ui.queue_free()
@@ -372,13 +409,16 @@ func make_ui() -> void:
 
 
 func set_menu(name: String) -> void:
+	if screen == "home" and name != "home":
+		var focused := get_viewport().gui_get_focus_owner() as Button
+		if is_instance_valid(focused):
+			home_focus = focused.text
 	bout = null
 	view.bout = null
 	view.menu_scene = name
 	screen = name
 	paused = false
-	settings_from_pause = false
-	controls_from_pause = false
+	pause_page = ""
 	make_ui()
 	change_music("lobby")
 
@@ -404,6 +444,10 @@ func show_home() -> void:
 	if completed:
 		button("Bossprobe", Rect2(438, 553, 175, 46), func() -> void: show_selection("boss_practice"))
 	label("F11  Vollbild", Rect2(1006, 651, 202, 42), 16, BOLD, DIM, HORIZONTAL_ALIGNMENT_RIGHT)
+	for item in ui.get_children():
+		if item is Button and item.text == home_focus:
+			item.grab_focus()
+			return
 	play.grab_focus()
 
 
@@ -437,14 +481,17 @@ func unlock_goal(id: String) -> bool:
 	return true
 
 
-func show_settings(from_pause: bool = false) -> void:
+func preferences_page(page: String, from_pause: bool) -> void:
 	if from_pause:
 		make_ui()
 		ribbon(Rect2(0, 0, 1280, 720), Color(0.035, 0.055, 0.105, 0.95))
+		pause_page = page
 	else:
-		set_menu("settings")
-	settings_from_pause = from_pause
-	controls_from_pause = false
+		set_menu(page)
+
+
+func show_settings(from_pause: bool = false) -> void:
+	preferences_page("settings", from_pause)
 	header("Einstellungen", "Änderungen werden gespeichert", show_pause if from_pause else show_home)
 	style_panel(Rect2(60, 143, 563, 358), PANEL, EDGE)
 	style_panel(Rect2(651, 143, 568, 358), PANEL, EDGE)
@@ -502,38 +549,93 @@ func toggle_effects() -> void:
 
 
 func show_controls() -> void:
-	var from_pause := settings_from_pause
-	if from_pause:
-		make_ui()
-		ribbon(Rect2(0, 0, 1280, 720), Color(0.035, 0.055, 0.105, 0.95))
-	else:
-		set_menu("controls")
-	controls_from_pause = from_pause
+	var from_pause := not pause_page.is_empty()
+	preferences_page("controls", from_pause)
 	var back := header("Steuerung", "Tastatur und Controller", show_settings.bind(from_pause))
 	style_panel(Rect2(61, 144, 1158, 427), PANEL, EDGE)
-	var columns := [89, 542, 789, 1002]
+	var columns := [89, 456, 730, 1002]
 	for col in 4:
 		label(["Aktion", "Spieler 1", "Spieler 2", "Controller"][col],
 			Rect2(columns[col], 164, 190, 38), 18, BOLD, MINT)
-	var keys := [
-		["Laufen", "A / D", "← / →", "Stick / Steuerkreuz"],
-		["Springen / Doppelsprung", "W / Leertaste", "↑", "A"],
-		["Angreifen", "F", "J", "X"],
-		["Spezialfähigkeit", "G", "K", "Y"],
-		["Ausweichen", "Q / Umschalt", "L", "B / RB"],
-		["Plattform fallen lassen", "S", "↓", "Stick / Steuerkreuz ↓"],
-	]
-	for row in keys.size():
-		ribbon(Rect2(86, 208 + row*54, 1108, 1), EDGE)
-		for col in 4:
-			label(keys[row][col], Rect2(columns[col], 213 + row*54, 375 if col == 0 else 192, 41),
-				18, BOLD if col == 0 else TEXT, PAPER)
-	label("Esc oder Start öffnet das Pausenmenü. F11 schaltet Vollbild um.",
-		Rect2(64, 594, 1142, 40), 18, TEXT, DIM)
+	var actions := ["Laufen", "Springen / Doppelsprung", "Angreifen", "Spezialfähigkeit",
+		"Ausweichen", "Plattform fallen lassen"]
+	var pads := ["Stick / Steuerkreuz", "A", "X", "Y", "B / RB", "Stick / Steuerkreuz ↓"]
+	for row in actions.size():
+		var y := 213 + row * 54
+		ribbon(Rect2(86, y - 5, 1108, 1), EDGE)
+		label(actions[row], Rect2(columns[0], y, 332, 41), 18, BOLD)
+		for player in 2:
+			var aliases := keyboard.caption(player, row + 1)
+			if row == 0:
+				aliases = keyboard.caption(player, 0) + " / " + aliases
+			label(aliases, Rect2(columns[player + 1], y, 253, 41), 17)
+		label(pads[row], Rect2(columns[3], y, 192, 41), 17)
+	label("Esc oder Start öffnet Pause. F11 schaltet Vollbild um.",
+		Rect2(64, 594, 760, 40), 18, TEXT, DIM)
+	button("Tastenbelegung ändern", Rect2(858, 584, 361, 53), show_bindings)
 	back.grab_focus()
 
 
-func show_selection(kind: String) -> void:
+func show_bindings(focus: Vector2i = Vector2i(-1, -1), hint: String = "") -> void:
+	preferences_page("bindings", not pause_page.is_empty())
+	var back := header("Tastenbelegung", "Beide Tastaturlayouts", show_controls)
+	style_panel(Rect2(60, 151, 1160, 406), PANEL, EDGE)
+	for player in 2:
+		label("Spieler %d" % (player + 1), Rect2(522 + 343 * player, 162, 315, 31), 17, BOLD, MINT)
+	for action in ArenaKeys.ACTION_NAMES.size():
+		var y := 203 + action * 48
+		label(ArenaKeys.ACTION_NAMES[action], Rect2(86, y, 410, 42), 17, BOLD)
+		for player in 2:
+			var target := Vector2i(player, action)
+			var key_button := button(keyboard.caption(player, action), Rect2(522 + 343 * player, y, 315, 40),
+				start_key_capture.bind(target))
+			if target == focus:
+				key_button.grab_focus()
+	binding_message = label(hint if not hint.is_empty() else "Wähle eine Aktion und drücke die gewünschte Taste.",
+		Rect2(63, 567, 1155, 44), 18, BOLD, MINT)
+	button("Standard wiederherstellen", Rect2(62, 625, 315, 50), restore_bindings)
+	button("Eingabe abbrechen", Rect2(391, 625, 255, 50), cancel_binding)
+	if focus.x < 0:
+		back.grab_focus()
+
+
+func start_key_capture(target: Vector2i) -> void:
+	key_capture = target
+	binding_message.text = "Neue Taste für Spieler %d · %s drücken. Esc bricht ab." % [
+		target.x + 1, ArenaKeys.ACTION_NAMES[target.y]]
+
+
+func capture_binding(key: int) -> void:
+	if key == KEY_ESCAPE:
+		cancel_binding()
+		return
+	if not keyboard.valid_key(key):
+		binding_message.text = "Diese Taste ist reserviert. Wähle eine andere Taste oder drücke Esc."
+		return
+	var conflict := keyboard.conflict(key, key_capture)
+	if not conflict.is_empty():
+		binding_message.text = "Bereits belegt für %s. Wähle eine andere Taste oder drücke Esc." % conflict
+		return
+	var target := key_capture
+	keyboard.layouts[target.x][target.y] = [key]
+	save_settings()
+	show_bindings(target, "Taste gespeichert.")
+
+
+func cancel_binding() -> void:
+	if key_capture.x < 0:
+		return
+	key_capture = Vector2i(-1, -1)
+	binding_message.text = "Eingabe abgebrochen."
+
+
+func restore_bindings() -> void:
+	keyboard.restore_defaults()
+	save_settings()
+	show_bindings(Vector2i(-1, -1), "Standardtasten für beide Spieler wiederhergestellt.")
+
+
+func show_selection(kind: String, focus_caption: String = "") -> void:
 	if selection_mode != kind or screen == "home":
 		picking = 0
 	selection_mode = kind
@@ -560,6 +662,7 @@ func show_selection(kind: String) -> void:
 		var y := 139 + (i / 6) * 117
 		var card := button("", Rect2(x, y, 115, 107), choose_fighter.bind(i), i == chosen)
 		card.tooltip_text = String(catalog.fighters[i]["ability"])
+		card.accessibility_name = "%02d %s" % [i + 1, catalog.fighters[i]["name"]]
 		portrait(i, Rect2(27, 4, 59, 62), card)
 		var ink := DARK if i == chosen else PAPER
 		var fit := 14 if String(catalog.fighters[i]["name"]).length() < 12 else 12
@@ -625,6 +728,10 @@ func show_selection(kind: String) -> void:
 		button("Turnier starten", Rect2(829, 618, 392, 53), begin_tournament, true)
 	else:
 		button("Tutorial starten", Rect2(829, 618, 392, 53), begin_campaign, true)
+	for item in ui.get_children():
+		if item is Button and not focus_caption.is_empty() and item.text == focus_caption:
+			item.grab_focus()
+			return
 	if is_instance_valid(selected_card):
 		selected_card.grab_focus()
 
@@ -696,6 +803,7 @@ func choose_arena(index: int) -> void:
 	match arena_picker_source:
 		"network":
 			host_stage_pick = index
+			link.choose_arena(index)
 		"survival":
 			survival_stage_pick = index
 		_:
@@ -707,7 +815,8 @@ func leave_arena_picker() -> void:
 	if arena_picker_source == "network":
 		show_lobby()
 	else:
-		show_selection(arena_picker_source)
+		var index := stage_pick if arena_picker_source == "versus" else survival_stage_pick
+		show_selection(arena_picker_source, arena_name(index) + "  ›")
 
 
 func begin_campaign() -> void:
@@ -824,7 +933,7 @@ func begin_boss_practice() -> void:
 
 func show_versus_rules() -> void:
 	set_menu("rules")
-	header("Versus-Regeln", "Lokales Duell", show_selection.bind("versus"))
+	header("Versus-Regeln", "Lokales Duell", show_selection.bind("versus", "Regeln"))
 	style_panel(Rect2(59, 145, 1161, 393), PANEL, EDGE)
 	label("Versuche pro Figur", Rect2(91, 162, 470, 49), 25, BOLD)
 	var stocks := option_picker("Versuche", ["1", "2", "3", "4", "5"], Rect2(734, 166, 442, 50),
@@ -842,7 +951,7 @@ func show_versus_rules() -> void:
 		Rect2(91, 392, 1074, 41), 17, TEXT, DIM)
 	label("Bei Zeitablauf entscheiden übrige Versuche, dann der niedrigere Rückstoßwert.",
 		Rect2(91, 464, 1074, 40), 17, TEXT, DIM)
-	button("Übernehmen", Rect2(872, 580, 348, 56), show_selection.bind("versus"), true)
+	button("Übernehmen", Rect2(872, 580, 348, 56), show_selection.bind("versus", "Regeln"), true)
 	stocks.grab_focus()
 
 
@@ -872,7 +981,7 @@ func start_practice() -> void:
 
 func show_lobby() -> void:
 	set_menu("network")
-	header("Netzwerkduell", String(catalog.fighters[selected.x]["name"]), go_back)
+	header("Netzwerkduell", fighter_name(selected.x), go_back)
 	style_panel(Rect2(59, 148, 564, 350), PANEL, EDGE)
 	style_panel(Rect2(646, 148, 575, 350), PANEL, EDGE)
 	label("SPIEL HOSTEN", Rect2(83, 169, 430, 57), 40, DISPLAY)
@@ -893,7 +1002,8 @@ func show_lobby() -> void:
 	port_box = field(Rect2(1028, 380, 162, 42), last_port, "24738")
 	join_button = button("Verbinden", Rect2(670, 429, 520, 48), join_game, true)
 	style_panel(Rect2(59, 518, 1162, 142), PANEL, EDGE)
-	lobby_status = label("", Rect2(84, 532, 1104, 45), 18, BOLD, PAPER)
+	lobby_status = label("", Rect2(84, 527, 1104, 42), 18, BOLD, PAPER)
+	lobby_matchup = label("", Rect2(235, 590, 675, 46), 16, BOLD, MINT)
 	end_connection_button = button("Trennen", Rect2(83, 597, 140, 44), disconnect_lobby)
 	ready_button = button("Runde starten", Rect2(944, 587, 246, 53), start_network, true)
 	refresh_lobby()
@@ -916,6 +1026,7 @@ func get_lobby_port() -> int:
 func host_game() -> void:
 	var port := get_lobby_port()
 	if port > 0:
+		link.choose_arena(host_stage_pick)
 		link.listen(port, selected.x)
 
 
@@ -923,10 +1034,19 @@ func join_game() -> void:
 	var port := get_lobby_port()
 	if port <= 0:
 		return
-	if last_address.is_empty():
-		lobby_status.text = "Trag zuerst eine Host-Adresse ein."
+	if not valid_host_address(last_address):
+		lobby_status.text = "Gib eine IP-Adresse oder einen Hostnamen ohne Port ein."
 		return
 	link.join(last_address, port, selected.x)
+
+
+func valid_host_address(value: String) -> bool:
+	if value.is_valid_ip_address():
+		return true
+	if value.is_empty() or (value.contains(".") and value.replace(".", "").is_valid_int()):
+		return false
+	var dns := RegEx.create_from_string("^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*\\.?$")
+	return dns.search(value.to_lower()) != null
 
 
 func disconnect_lobby() -> void:
@@ -935,9 +1055,12 @@ func disconnect_lobby() -> void:
 
 
 func refresh_lobby() -> void:
+	if screen == "bout" and is_instance_valid(rematch_button):
+		refresh_rematch()
 	if screen != "network" or not is_instance_valid(lobby_status):
 		return
-	lobby_status.text = link.status if not link.status.is_empty() else "Wähle Hosten oder Beitreten."
+	var status := link.status if not link.status.is_empty() else "Wähle Hosten oder Beitreten."
+	lobby_status.text = "%s  ·  %s" % [link.phase, status]
 	region.text = "Deine LAN-Adresse:  %s" % DuelLink.lan_addresses()
 	host_button.disabled = link.peer != null
 	join_button.disabled = link.peer != null
@@ -946,6 +1069,22 @@ func refresh_lobby() -> void:
 	ready_button.disabled = not link.can_start()
 	var chooser := ui.get_node("ArenaChoice") as Button
 	chooser.disabled = link.peer != null and not link.hosting
+	var arena := host_stage_pick if not chooser.disabled or link.preview_host == -1 else link.preview_arena
+	chooser.text = arena_name(arena) + ("  ›" if not chooser.disabled else "")
+	var host_id := selected.x if link.hosting else link.preview_host
+	var guest_id := link.guest_fighter if link.hosting else selected.x
+	lobby_matchup.text = ""
+	if host_id >= 0 and guest_id >= 0:
+		lobby_matchup.text = "%s gegen %s  ·  %s" % [fighter_name(host_id), fighter_name(guest_id), arena_name(arena)]
+
+
+func refresh_rematch() -> void:
+	if link.hosting:
+		rematch_button.disabled = not link.can_start()
+		rematch_button.text = "Revanche starten" if link.can_start() else "Wartet auf Gast"
+	else:
+		rematch_button.disabled = link.ready_sent
+		rematch_button.text = "Bereit · Host startet" if link.ready_sent else "Für Revanche bereit"
 
 
 func start_network() -> void:
@@ -1008,8 +1147,7 @@ func show_tutorial_finish() -> void:
 
 
 func show_pause() -> void:
-	settings_from_pause = false
-	controls_from_pause = false
+	pause_page = ""
 	paused = true
 	make_ui()
 	if bout.mode == "practice":
@@ -1049,7 +1187,7 @@ func show_practice_pause() -> void:
 
 
 func resume_bout() -> void:
-	settings_from_pause = false
+	pause_page = ""
 	paused = false
 	make_ui()
 
@@ -1075,9 +1213,9 @@ func show_result() -> void:
 	var next_action := restart_bout
 	var enabled := true
 	if bout.mode == "network":
-		primary = "Revanche starten" if link.hosting else "Host entscheidet über Revanche"
-		next_action = start_network
-		enabled = link.hosting
+		primary = "Revanche"
+		next_action = start_network if link.hosting else link.request_rematch
+		enabled = link.can_start() if link.hosting else not link.ready_sent
 	elif bout.mode == "survival":
 		var cleared := survival_wave + (1 if victor == 0 else 0)
 		var best := cleared > survival_best
@@ -1135,6 +1273,9 @@ func show_result() -> void:
 	label(subtitle, Rect2(379, 299, 523, 50), 17, TEXT, DIM, HORIZONTAL_ALIGNMENT_CENTER)
 	var action := button(primary, Rect2(422, 369, 436, 53), next_action, true)
 	action.disabled = not enabled
+	if bout.mode == "network":
+		rematch_button = action
+		refresh_rematch()
 	var home := button("Zum Hauptmenü", Rect2(422, 440, 436, 50), show_home)
 	if enabled:
 		action.grab_focus()
@@ -1161,20 +1302,20 @@ func label(value: String, area: Rect2, size: int, font: Font = TEXT, color: Colo
 		wrap: bool = false) -> Label:
 	var item := Label.new()
 	item.text = value
-	item.position = area.position
-	item.size = area.size
 	item.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	item.horizontal_alignment = alignment
 	item.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	item.clip_text = true
 	if wrap:
 		item.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	else:
-		item.clip_text = true
 		item.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	item.add_theme_font_override("font", font)
 	item.add_theme_font_size_override("font_size", size)
 	item.add_theme_color_override("font_color", color)
 	(ui if parent == null else parent).add_child(item)
+	item.position = area.position
+	item.size = area.size
 	return item
 
 
