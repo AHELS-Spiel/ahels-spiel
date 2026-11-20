@@ -316,7 +316,7 @@ func draw_status(index: int) -> void:
 				HORIZONTAL_ALIGNMENT_LEFT, -1, 36, color)
 	if f.id != ArenaCatalog.BOSS:
 		draw_rect(Rect2(x+73, 82, 71, 4), Color("#3a4b61"))
-		draw_rect(Rect2(x+73, 82, 71.0*(1.0 - f.cooldown / 2.35), 4), color)
+		draw_rect(Rect2(x+73, 82, 71.0*(1.0 - f.cooldown / float(f.profile["cooldown"])), 4), color)
 
 
 func draw_lesson() -> void:
