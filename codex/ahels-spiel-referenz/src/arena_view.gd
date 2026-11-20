@@ -22,14 +22,6 @@ const FAKE_LINES: Array[String] = [
 	"Ausweichen! Jetzt einmal ganz still stehen.",
 	"Ha! Genau so wollte ich es vorzeigen. Ungefähr.",
 ]
-const REAL_LINES: Array[String] = [
-	"Mit A / D laufen. Beweg dich ein Stück nach links oder rechts.",
-	"Springe mit W oder Leertaste. In der Luft geht ein zweiter Sprung.",
-	"Geh nah an die Zielscheibe rechts und drück F.",
-	"Drück G für die Spezialfähigkeit deiner Figur.",
-	"Weiche mit Q aus. Am Boden lädt die Rolle wieder auf.",
-	"Geschafft! Du hast alle Übungen abgeschlossen.",
-]
 const PAD_LINES: Array[String] = [
 	"Bewege dich mit dem linken Stick.",
 	"Springe mit A. Drück A in der Luft erneut für den Doppelsprung.",
@@ -41,6 +33,7 @@ const PAD_LINES: Array[String] = [
 const LESSONS: Array[String] = ["Laufen", "Springen", "Treffen", "Spezial", "Ausweichen"]
 
 var catalog: ArenaCatalog
+var keyboard: ArenaKeys
 var bout: ArenaBout
 var menu_scene := "home"
 var match_context := ""
@@ -200,8 +193,11 @@ func draw_fighter(f: ArenaBout.Fighter, position: Vector2, index: int) -> void:
 			draw_arc(p - Vector2(0, 2), 37 + 90 * warning, PI, TAU, 20, color, 3)
 		draw_string(DISPLAY, p + Vector2(-6, -138), "!", HORIZONTAL_ALIGNMENT_LEFT, -1, 30, color)
 	elif bout.mode != "training":
-		draw_colored_polygon(PackedVector2Array([p + Vector2(-6, -116),
-			p + Vector2(6, -116), p + Vector2(0, -109)]), player_color)
+		var badge := p + Vector2(0, -128 * large)
+		draw_rect(Rect2(badge - Vector2(9, 9), Vector2(18, 18)), NIGHT)
+		draw_rect(Rect2(badge - Vector2(9, 9), Vector2(18, 18)), player_color, false)
+		draw_string(BOLD, badge + Vector2(-8, 5), str(index + 1),
+			HORIZONTAL_ALIGNMENT_CENTER, 16, 12, player_color)
 
 
 func draw_shadow(at: Vector2, half: float) -> void:
@@ -343,16 +339,18 @@ func draw_status(index: int) -> void:
 		else:
 			if bout.mode == "practice":
 				draw_string(TEXT, Vector2(x+73, 65), String(f.profile["ability"]),
-					HORIZONTAL_ALIGNMENT_LEFT, -1, 13, SOFT)
+					HORIZONTAL_ALIGNMENT_LEFT, 120, 13, SOFT)
 			else:
-				for stock in bout.max_stocks:
+				var stock_slots := 1 if bout.mode == "survival" and index == 1 else bout.max_stocks
+				for stock in stock_slots:
 					draw_rect(Rect2(x+73 + stock*18, 56, 11, 11), color if stock < f.stocks else Color("#39465b"))
 			var value_x := x + (199 if bout.mode == "practice" else 169)
 			draw_string(DISPLAY, Vector2(value_x, 83), "%d%%" % roundi(f.balance),
 				HORIZONTAL_ALIGNMENT_LEFT, -1, 36, color)
 	if f.id != ArenaCatalog.BOSS:
 		draw_rect(Rect2(x+73, 82, 71, 4), Color("#3a4b61"))
-		draw_rect(Rect2(x+73, 82, 71.0*(1.0 - f.cooldown / float(f.profile["cooldown"])), 4), color)
+		var ready := 1.0 - clampf(f.cooldown / float(f.profile["cooldown"]), 0.0, 1.0)
+		draw_rect(Rect2(x+73, 82, 71.0 * ready, 4), color)
 
 
 func draw_practice() -> void:
@@ -374,8 +372,23 @@ func draw_lesson() -> void:
 		draw_rect(Rect2(51, 628, 4, 62), MINT)
 		var heading := "TURNSAAL-TAFEL  /  " + LESSONS[step].to_upper() if step < 5 else "TURNSAAL-TAFEL"
 		draw_string(BOLD, Vector2(72, 653), heading, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, MINT)
-		var instruction := PAD_LINES[step] if not Input.get_connected_joypads().is_empty() else REAL_LINES[step]
+		var instruction := PAD_LINES[step] if not Input.get_connected_joypads().is_empty() else keyboard_lesson(step)
 		draw_string(TEXT, Vector2(72, 676), instruction, HORIZONTAL_ALIGNMENT_LEFT, -1, 17, PAPER)
+
+
+func keyboard_lesson(step: int) -> String:
+	match step:
+		0:
+			return "Laufe mit %s oder %s ein Stück zur Seite." % [keyboard.caption(0, 0), keyboard.caption(0, 1)]
+		1:
+			return "Springe mit %s. In der Luft geht ein zweiter Sprung." % keyboard.caption(0, 2)
+		2:
+			return "Geh nah an die Zielscheibe rechts und drück %s." % keyboard.caption(0, 3)
+		3:
+			return "Drück %s für die Spezialfähigkeit deiner Figur." % keyboard.caption(0, 4)
+		4:
+			return "Weiche mit %s aus. Am Boden lädt die Rolle wieder auf." % keyboard.caption(0, 5)
+	return "Geschafft! Du hast alle Übungen abgeschlossen."
 
 
 func draw_countdown() -> void:

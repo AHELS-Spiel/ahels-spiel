@@ -11,7 +11,11 @@ const DEFAULT_PORT := 24738
 const WAIT_SECONDS := 12.0
 
 var peer: ENetMultiplayerPeer
-var arena_count := 0
+var arena_ids := PackedStringArray()
+var preview_arena := 1
+var preview_host := -1
+var rematch_requested := false
+var ready_sent := false
 var hosting := false
 var local_fighter := 0
 var guest := 0
@@ -20,6 +24,7 @@ var round_id := 0
 var remote_held := 0
 var remote_edges := 0
 var status := ""
+var phase := "GETRENNT"
 var waiting := 0.0
 var last_input_time := 0
 
@@ -46,11 +51,13 @@ func listen(port: int, fighter: int) -> Error:
 	var socket := ENetMultiplayerPeer.new()
 	var error := socket.create_server(port, 1, 3)
 	if error != OK:
+		phase = "GETRENNT"
 		status = "Hosten fehlgeschlagen. Ist UDP-Port %s schon belegt?" % port
 		lobby_updated.emit()
 		return error
 	peer = socket
 	hosting = true
+	phase = "WARTET"
 	status = "Warte auf eine zweite Person · UDP %d" % port
 	multiplayer.multiplayer_peer = socket
 	lobby_updated.emit()
@@ -67,6 +74,7 @@ func join(address: String, port: int, fighter: int) -> Error:
 		lobby_updated.emit()
 		return error
 	peer = socket
+	phase = "VERBINDET"
 	status = "Verbinde mit %s · UDP %d …" % [address, port]
 	waiting = WAIT_SECONDS
 	multiplayer.multiplayer_peer = socket
@@ -76,6 +84,10 @@ func join(address: String, port: int, fighter: int) -> Error:
 
 func close() -> void:
 	waiting = 0.0
+	phase = "GETRENNT"
+	preview_host = -1
+	rematch_requested = false
+	ready_sent = false
 	round_id = 0
 	guest = 0
 	guest_fighter = -1
@@ -92,6 +104,7 @@ func close() -> void:
 func on_peer_connected(id: int) -> void:
 	if hosting and peer != null:
 		guest = id
+		phase = "VERBUNDEN"
 		status = "Verbunden. Warte auf die Figurenwahl …"
 		lobby_updated.emit()
 
@@ -102,6 +115,8 @@ func on_peer_disconnected(id: int) -> void:
 		guest_fighter = -1
 		remote_held = 0
 		remote_edges = 0
+		rematch_requested = false
+		phase = "WARTET"
 		status = "Die zweite Person hat die Verbindung getrennt."
 		connection_lost.emit(status)
 		lobby_updated.emit()
@@ -110,8 +125,8 @@ func on_peer_disconnected(id: int) -> void:
 func on_connected() -> void:
 	if peer == null or hosting:
 		return
-	waiting = 0.0
-	status = "Verbunden. Die hostende Person startet die Runde."
+	phase = "VERBUNDEN"
+	status = "Spielversion wird geprüft …"
 	announce.rpc_id(1, VERSION, local_fighter)
 	lobby_updated.emit()
 
@@ -142,8 +157,13 @@ func announce(version: int, fighter: int) -> void:
 		lobby_updated.emit()
 		reject.rpc_id(guest)
 		return
+	if guest_fighter != -1 and fighter != guest_fighter:
+		return
 	guest_fighter = fighter
+	rematch_requested = true
+	phase = "BEREIT"
 	status = "Beide verbunden. Die Runde kann starten."
+	send_preview()
 	lobby_updated.emit()
 
 
@@ -154,33 +174,73 @@ func reject() -> void:
 	lobby_updated.emit()
 
 
-func can_start() -> bool:
+func connected_guest() -> bool:
 	return hosting and guest != 0 and guest_fighter >= 0
+
+
+func can_start() -> bool:
+	return connected_guest() and rematch_requested
+
+
+func choose_arena(index: int) -> void:
+	if valid_arena(index):
+		preview_arena = index
+		send_preview()
+
+
+func send_preview() -> void:
+	if connected_guest():
+		open_round.rpc_id(guest, 0, arena_ids[preview_arena], local_fighter, guest_fighter)
+
+
+func request_rematch() -> void:
+	if peer == null or hosting or round_id == 0 or ready_sent:
+		return
+	ready_sent = true
+	phase = "BEREIT"
+	announce.rpc_id(1, VERSION, local_fighter)
+	lobby_updated.emit()
 
 
 func start_round(stage_index: int) -> void:
 	if not can_start() or not valid_arena(stage_index):
 		return
 	round_id += 1
+	preview_arena = stage_index
+	phase = "SPIEL LÄUFT"
+	rematch_requested = false
 	remote_edges = 0
 	remote_held = 0
 	last_input_time = Time.get_ticks_msec()
-	open_round.rpc_id(guest, round_id, stage_index, local_fighter, guest_fighter)
+	open_round.rpc_id(guest, round_id, arena_ids[stage_index], local_fighter, guest_fighter)
 	match_started.emit(stage_index, local_fighter, guest_fighter)
 
 
 @rpc("authority", "call_remote", "reliable")
-func open_round(serial: int, stage_index: int, one: int, two: int) -> void:
-	if hosting or serial <= round_id or not valid_arena(stage_index):
+func open_round(serial: int, arena_id: String, one: int, two: int) -> void:
+	var stage_index := arena_ids.find(arena_id)
+	if hosting or not valid_arena(stage_index):
 		return
-	if one < 0 or one >= ArenaCatalog.STUDENTS or two < 0 or two >= ArenaCatalog.STUDENTS:
+	if one < 0 or one >= ArenaCatalog.STUDENTS or two != local_fighter:
 		return
-	round_id = serial
-	match_started.emit(stage_index, one, two)
+	preview_arena = stage_index
+	preview_host = one
+	# Serial zero previews the matchup without clearing an active or completed round.
+	if serial == 0:
+		waiting = 0.0
+		if round_id == 0:
+			phase = "BEREIT"
+			status = "Beide verbunden. Der Host startet die Runde."
+			lobby_updated.emit()
+	elif serial > round_id:
+		round_id = serial
+		ready_sent = false
+		phase = "SPIEL LÄUFT"
+		match_started.emit(stage_index, one, two)
 
 
 func valid_arena(stage_index: int) -> bool:
-	return stage_index >= 1 and stage_index < arena_count
+	return stage_index >= 1 and stage_index < arena_ids.size()
 
 
 func send_controls(held: int, pressed: int) -> void:
@@ -212,7 +272,7 @@ func consume_controls() -> Vector2i:
 
 
 func send_state(state: Dictionary) -> void:
-	if can_start():
+	if connected_guest():
 		sync_state.rpc_id(guest, round_id, state)
 
 

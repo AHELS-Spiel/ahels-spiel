@@ -1,24 +1,32 @@
-# AHELS Arena
+# AHELS Arena V4
 
-Eine spielbare Referenzversion für das Klassenspiel. In diesem 2D-Plattform-Fighter kämpft ihr in mehreren Schul-Arenen und versucht, eure Gegner aus der Arena zu befördern. Treffer erhöhen den Rückstoß. Im Versus haben beide Figuren drei Versuche.
+Ein Pixel-Plattform-Fighter mit 24 Klassenfiguren und zwei Lehrern. Treffer erhöhen den Rückstoß. Wer über den Rand fällt, verliert einen Versuch.
 
 ## Starten
 
-Die exportierte Desktop-Version startet über `AHELS-Arena.exe` auf Windows oder `AHELS-Arena.x86_64` auf Linux. Auf macOS entpackt ihr das Archiv und öffnet **AHELS Arena.app**. Der macOS-Build ist ad hoc signiert und nicht notarisiert. macOS kann beim ersten Start verlangen, dass ihr die App unter **Datenschutz & Sicherheit** freigebt.
+Entpackt das ZIP vollständig und startet die Datei für euer System.
 
-Für die Entwicklung den Ordner in **Godot 4.6.3** über `project.godot` importieren und **F5** drücken. Das Projekt verwendet GDScript und den Compatibility-Renderer. Bei der Engine-Wahl für das Klassenprojekt bleibt Godot mit C# eine Option. Godot kann GDScript und C# im selben Projekt verwenden.
+- **Windows (x86-64)** · `AHELS-Arena.exe`
+- **Linux (x86-64)** · `AHELS-Arena.x86_64`
+- **macOS (Intel und Apple Silicon)** · `AHELS Arena.app`
 
-## Spielmodi
+Die macOS-App ist ad hoc signiert. Je nach Sicherheitseinstellung braucht sie beim ersten Start eine Freigabe unter **Datenschutz & Sicherheit**.
 
-- **Solo-Kampagne.** Wählt eine Figur. Herr Haidenthaler macht die Übungen verdreht vor, die Turnsaal-Tafel zeigt die richtigen Tasten. Danach geht es durch Pausenhof und Computerraum zum Finale gegen Herrn Grimmer. Springt über seine angekündigte Regalwelle und nutzt die Pause danach.
-- **Turnier.** Tretet mit eurer Figur in vier Duellen gegen wechselnde CPU-Gegner an. Pro Runde gibt es eine andere Arena und die CPU reagiert schneller. Nach einer Niederlage könnt ihr dieselbe Runde erneut spielen. Gewonnene Turniere werden auf eurem Gerät gezählt.
-- **Tutorial.** Startet die fünf Übungen mit Herrn Haidenthaler direkt aus dem Hauptmenü.
-- **Versus.** Zwei Personen am selben PC oder eine Person gegen die CPU. Figuren und Arena wählt ihr vor der Runde. Bei Ablauf der Uhr zählen zuerst die verbleibenden Versuche, dann der niedrigere Rückstoßwert.
-- **Netzwerk.** Zwei Personen auf unterschiedlichen PCs. Eine Person startet den Host, die andere nutzt die Host-Adresse und den gleichen UDP-Port. Beide wählen ihre Figur vor dem Verbinden. Der Host wählt die Arena und startet die Runde.
+## Modi
 
-In Versus und im Netzwerk könnt ihr zwischen Pausenhof, Computerraum, Bibliothek, Werkstatt und Dachterrasse wählen. Im Turnier spielt ihr vier davon in wechselnder Reihenfolge.
+- **Solo-Kampagne.** Herr Haidenthaler erklärt im Turnsaal alles auf seine Weise. Die Tafel zeigt die richtigen Tasten. Danach folgen Pausenhof, Computerraum, Aula und das Finale gegen Herrn Grimmer. Springt über die Regalwelle, weicht den sichtbaren Kreidelinien aus und nutzt die Pause zum Kontern.
+- **Tutorial.** Die fünf Übungen aus dem Turnsaal sind auch direkt vom Hauptmenü aus erreichbar.
+- **Versus.** Spielt zu zweit am PC oder gegen die CPU. Wählt Figuren, Arena und auf Wunsch unter **Regeln** ein bis fünf Versuche, das Zeitlimit und die CPU-Stufe. Bei Zeitablauf zählen die verbleibenden Versuche, dann der niedrigere Rückstoßwert. Eine Revanche übernimmt dieselbe Arena und dieselben Regeln.
+- **Training.** Übt mit einer beliebigen Klassenfigur im Turnsaal gegen ein stehendes, springendes oder CPU-gesteuertes Gegenüber. Im Pausenmenü könnt ihr unter anderem den Rückstoßwert beim nächsten Reset festlegen. **R** setzt die Übung zurück, **F2** ändert das Gegnerverhalten.
+- **Turnier.** Spielt vier Duelle auf einer festen oder ausgelosten Route. Vor jeder Runde seht ihr das Duell und den Fortschritt. Eine Wiederholung behält Arena, Gegner und Schwierigkeit. Es gibt drei Turnierstufen.
+- **Überleben.** Ihr habt drei Versuche für fünf Wellen. Restversuche und Rückstoßwert gehen in die nächste Welle mit. Jede CPU-Figur hat einen Versuch. Euer Bestwert wird auf dem Gerät gespeichert.
+- **Bossprobe.** Nach dem Kampagnensieg könnt ihr das Bibliotheksfinale direkt üben.
+- **Netzwerk.** Wählt eure Figuren vor dem Verbinden. Der Host wählt die Arena und startet. Nach dem Ergebnis kann der Gast Bereitschaft für eine Revanche melden.
+- **Ziele.** Zeigt die auf diesem Gerät erreichten Spielziele.
 
-### Steuerung
+Pausenhof, Computerraum, Bibliothek, Werkstatt, Dachterrasse, Aula und Physiksaal sind Kampfarenen. Versus und Überleben bieten zusätzlich Zufallsauswahl. Freies Training und Tutorial finden im Turnsaal statt.
+
+### Standardsteuerung
 
 | Aktion | Spieler 1 / Netzwerkspieler | Spieler 2 lokal | Controller |
 | --- | --- | --- | --- |
@@ -27,32 +35,37 @@ In Versus und im Netzwerk könnt ihr zwischen Pausenhof, Computerraum, Bibliothe
 | Angreifen | F | J | X |
 | Spezialfähigkeit | G | K | Y |
 | Ausweichen | Q / Umschalt | L | B / RB |
-| Durch obere Plattform fallen | S | ↓ | Stick nach unten |
+| Durch obere Plattform fallen | S | ↓ | Stick oder Steuerkreuz ↓ |
 
-**Esc** oder **Start** öffnet das Pausenmenü. **F11** schaltet Vollbild um.
+**Esc** oder **Start** öffnet Pause. In Menüs bestätigt ihr mit Enter oder A und geht mit Esc oder B zurück. **F11** schaltet Vollbild um. In **Einstellungen** findet ihr getrennte Lautstärkeregler, Stummschaltung, reduzierte Effekte und die Steuerungsübersicht. Dort könnt ihr beide Tastaturlayouts ändern oder zurücksetzen. Die Tutorial-Tafel verwendet die aktiven Tasten. Einstellungen und Spielfortschritt werden beim Spielen gespeichert.
 
 ### Netzwerk einrichten
 
-Im selben Netzwerk nutzt ihr die LAN-Adresse, die im Menü angezeigt wird. Der Standardport ist **24738/UDP**. Im Internet muss der Host über eine erreichbare IP oder einen DNS-Namen an diesem UDP-Port erreichbar sein. Je nach Anschluss ist dafür eine Portweiterleitung nötig. Alternativ könnt ihr ein gemeinsames virtuelles Netzwerk nutzen und mit dessen Host-Adresse beitreten. Beide PCs brauchen dieselbe Spielversion. Der Host berechnet die Runde und synchronisiert sie mit dem Gast.
+Im LAN verwendet ihr die im Menü angezeigte Host-Adresse und denselben UDP-Port. Der Standardport ist **24738/UDP**. Über das Internet benötigt der Host eine erreichbare IP-Adresse oder einen DNS-Namen und gegebenenfalls eine UDP-Portweiterleitung. Alternativ geht ein gemeinsames virtuelles Netzwerk. Beide Instanzen brauchen V4. In der Netzwerkpause läuft die Runde für das Gegenüber weiter.
 
-## Figuren bearbeiten
+## Entwickeln und exportieren
 
-`data/fighters.json` enthält Anzeigenamen, Stärken und Werte für alle 24 auswählbaren Figuren und die beiden Lehrerfiguren. Alle 24 Figuren folgen den gelieferten Fotos und tragen die Vornamen der Klasse. Die Figurennummern unterscheiden die beiden Figuren mit dem Vornamen Felix und die beiden mit dem Vornamen Jonas. Die Spezialfähigkeiten sind Vorschläge und können gemeinsam angepasst werden. Die Pixel-Grafiken sind in `assets/pixel/` gespeichert. Die mitgelieferten Werkzeuge erzeugen sie mit Python und Pillow.
-
-```sh
-python art/make_assets.py
-```
-
-Die Schriften bringen ihre Lizenztexte unter `assets/fonts/` mit.
-
-## Orientierung im Code
+Öffnet `project.godot` in **Godot 4.6.3** und drückt **F5**. Das Projekt verwendet GDScript und den Compatibility-Renderer. Die Godot-Exportvorlagen für dieselbe Version und die drei Presets in `export_presets.cfg` erzeugen die Desktop-Ausgaben.
 
 | Datei | Zuständig |
 | --- | --- |
-| `src/main.gd` | Menüs, Steuerung, Kampagne und Audio |
-| `src/bout.gd` | Bewegung, Treffer, CPU, Übungen und Spielregeln |
-| `src/arena_view.gd` | Arenen, Spielfiguren, Effekte und Sprechblasen |
-| `src/duel_link.gd` | Host, Beitritt, Eingaben und Synchronisierung |
-| `data/arenas.json` | Plattformen und Startpositionen |
+| `src/main.gd` | Spielmodi, Menüs, Eingaben, Einstellungen und Audio |
+| `src/bout.gd` | Kampfregeln, Bewegung, Treffer, CPU und Übungen |
+| `src/arena_view.gd` | Pixel-Darstellung, HUD, Effekte und Tutorial-Tafel |
+| `src/duel_link.gd` | LAN-Lobby, Rollen, Start und Synchronisierung |
+| `data/arenas.json` | Arenen, Plattformen, Startpositionen und Vorschautexte |
+| `data/fighters.json` | Figuren, Fähigkeiten und Spielwerte |
 
-Die drei Exportziele sind in `export_presets.cfg` eingerichtet. Installiert in Godot die Export-Templates für dieselbe Version und wählt unter **Projekt → Exportieren** das gewünschte Ziel.
+`python art/make_assets.py` erzeugt die Pixelbilder und Audiodateien mit Python und Pillow. Die beiden Felix- und Jonas-Figuren sind an der Figurennummer erkennbar.
+
+Nach `godot --headless --editor --import` lassen sich die Tests aus dem Projektordner ausführen. Verwendet pro Test ein frisches Profil.
+
+```sh
+XDG_DATA_HOME="$(mktemp -d)" godot --headless --script res://tests/core_flows.gd
+XDG_DATA_HOME="$(mktemp -d)" godot --headless --script res://tests/playthroughs.gd
+XDG_DATA_HOME="$(mktemp -d)" godot --headless --script res://tests/arena_flows.gd
+XDG_DATA_HOME="$(mktemp -d)" godot --headless --script res://tests/controller_flows.gd
+XDG_DATA_HOME="$(mktemp -d)" godot --headless --script res://tests/playthroughs.gd -- tournament
+```
+
+Startet für einen lokalen Netzwerktest `tests/network_flows.gd` in zwei Prozessen mit den Argumenten `-- host` und `-- guest`. Die Lizenztexte liegen in den Desktop-ZIPs unter `Lizenzen/` und die Schriftlizenzen im Repository unter `assets/fonts/`.
