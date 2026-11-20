@@ -91,6 +91,8 @@ var boss_phase := 1
 var boss_warning := 0.0
 var boss_recovery := 0.0
 var boss_clock := 4.0
+var boss_chalk := false
+var last_boss_was_chalk := false
 var bot_clock := 0.0
 var bot_direction := 0
 var sound_id := 0
@@ -163,7 +165,7 @@ func tick(delta: float, first: int, first_edge: int, second: int, second_edge: i
 	time += delta
 	if mode == "training":
 		lesson_time += delta
-	if mode == "solo" or mode == "boss" or mode == "tournament":
+	if mode in ["solo", "boss", "tournament", "survival"]:
 		var bot := bot_input(delta)
 		second = bot_direction
 		second_edge = bot
@@ -454,22 +456,16 @@ func bot_input(delta: float) -> int:
 			boss_warning = maxf(0.0, boss_warning - delta)
 			bot_direction = 0
 			if boss_warning == 0.0:
-				var tint := Color("#ffd084") if boss_phase == 1 else Color("#ff7489")
-				var point := Vector2(f.p.x, floor_surface.position.y - 17.0)
-				var speed := 475.0 if boss_phase == 1 else 620.0
-				shots.append(Shot.new(point, Vector2(speed, 0), 1, 2.6, 19.0, tint, true))
-				shots.append(Shot.new(point, Vector2(-speed, 0), 1, 2.6, 19.0, tint, true))
-				boss_recovery = 1.02
-				flash(point, tint, "burst")
-				sound("boss")
+				release_boss_attack(f, floor_surface)
 			return 0
 		if boss_recovery > 0.0:
 			boss_recovery = maxf(0.0, boss_recovery - delta)
 			bot_direction = 0
 			return 0
 		if boss_clock <= 0.0 and f.standing and f.stun <= 0.0 and f.attack_time <= 0.0:
-			boss_warning = 0.90 if boss_phase == 1 else 0.73
-			boss_clock = 5.1 if boss_phase == 1 else 3.5
+			boss_chalk = boss_phase == 2 and not last_boss_was_chalk
+			boss_warning = 0.95 if boss_chalk else 0.90 if boss_phase == 1 else 0.73
+			boss_clock = 5.1 if boss_phase == 1 else 3.9
 			return 0
 	# Retten und dem Gegner erst danach nachsetzen.
 	if f.p.y > floor_surface.position.y + 17.0 or f.p.x < floor_surface.position.x + 11.0 			or f.p.x > floor_surface.end.x - 11.0:
@@ -489,6 +485,21 @@ func bot_input(delta: float) -> int:
 			return SPECIAL if f.cooldown <= 0.0 and rng.randf() < 0.38 else ATTACK
 		return SPECIAL if f.cooldown <= 0.0 and rng.randf() < (0.18 + difficulty * 0.12) else ATTACK
 	return 0
+
+
+func release_boss_attack(f: Fighter, floor_surface: Rect2) -> void:
+	var tint := Color("#93ecff") if boss_chalk else Color("#ffd084") if boss_phase == 1 else Color("#ff7489")
+	var point := Vector2(f.p.x, floor_surface.position.y - (130.0 if boss_chalk else 17.0))
+	var speed := 410.0 if boss_chalk else 475.0 if boss_phase == 1 else 620.0
+	var descent := Vector2(0, 130.0 if boss_chalk else 0.0)
+	var duration := 1.0 if boss_chalk else 2.6
+	var power := 16.0 if boss_chalk else 19.0
+	for side in [-1, 1]:
+		shots.append(Shot.new(point, Vector2(side * speed, 0) + descent, 1, duration, power, tint, not boss_chalk))
+	last_boss_was_chalk = boss_chalk
+	boss_recovery = 1.25 if boss_chalk else 1.02
+	flash(point, tint, "burst")
+	sound("boss")
 
 
 func ring_out(index: int) -> void:

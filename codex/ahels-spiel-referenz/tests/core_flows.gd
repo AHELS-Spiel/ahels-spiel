@@ -157,6 +157,7 @@ func run() -> void:
 	press("Tutorial starten")
 	check(app.bout.mode == "training" and app.bout.fighters.size() == 1, "Geführtes Tutorial getrennt")
 	app.next_chapter()
+	press("Duell starten")
 	check(app.bout.max_stocks == 3 and app.bout.time_limit == 150.0, "Kampagne behält Standardregeln")
 	app.queue_free()
 	await process_frame

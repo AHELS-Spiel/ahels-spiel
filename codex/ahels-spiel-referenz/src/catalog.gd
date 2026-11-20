@@ -30,6 +30,13 @@ func _init() -> void:
 		backdrops.append(load("res://assets/pixel/%s.png" % entry["id"]) as Texture2D)
 
 
+func arena_index(id: String) -> int:
+	for index in arenas.size():
+		if arenas[index]["id"] == id:
+			return index
+	return -1
+
+
 func draw_sprite(canvas: CanvasItem, index: int, frame: int, destination: Rect2,
 		facing: int = 1, tint: Color = Color.WHITE) -> void:
 	var source := Rect2(Vector2(frame * SPRITE_SIZE.x, 0), SPRITE_SIZE)
