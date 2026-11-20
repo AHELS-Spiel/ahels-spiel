@@ -152,6 +152,23 @@ stats = {
     'bolt': (.97, 1.04, .96), 'long': (.99, 1., 1.04),
     'echo': (1.025, .97, .98), 'anchor': (.92, .96, 1.20),
 }
+# Abweichungen für Tempo, Sprung und Gewicht. Dazu Kraft und Abklingzeit
+# der Spezialaktion, damit auch Figuren mit ähnlichen Aktionen verschieden spielen.
+tuning = [
+    (.08, .00, -.02, .90, 1.76), (.03, -.02, .00, .94, 1.85),
+    (-.02, .04, -.03, 1.02, 2.60), (.02, .02, -.06, 1.02, 2.11),
+    (-.03, .00, .02, 1.08, 2.28), (-.03, -.03, .07, 1.16, 2.75),
+    (.00, .06, .00, .90, 1.97), (.00, -.02, .02, 1.08, 2.55),
+    (.02, .03, -.04, .88, 1.70), (-.03, .00, .03, 1.17, 2.72),
+    (-.03, -.03, .09, 1.14, 2.61), (.04, .01, .08, 1.18, 2.87),
+    (.03, -.06, .09, 1.21, 2.66), (.04, -.02, .02, 1.00, 2.04),
+    (.05, .04, -.05, .88, 1.90), (.06, .01, -.01, .86, 1.91),
+    (-.03, -.02, .11, 1.19, 2.83), (.01, .06, -.05, .96, 2.13),
+    (.00, -.02, .06, 1.15, 2.51), (-.01, .05, -.03, .88, 1.74),
+    (-.02, .06, .07, 1.20, 2.90), (.00, .02, .01, 1.04, 2.14),
+    (.03, .02, -.02, .97, 1.91), (.08, .01, -.08, .84, 1.64),
+    (.00, .00, .00, 1.00, 2.35), (.00, .00, .00, 1.00, 2.35),
+]
 roster = []
 for index, profile in enumerate(PROFILES):
     name, ability, kind, accent, *_ = profile
@@ -162,10 +179,11 @@ for index, profile in enumerate(PROFILES):
     sheet.save(ART / f'{ident}.png', optimize=True)
     portrait(profile, index).save(ART / f'{ident}-portrait.png', optimize=True)
     speed, jump, weight = stats[kind]
-    variation = [0, .025, -.02, .014, -.012][index % 5]
+    speed_bonus, jump_bonus, weight_bonus, power, cooldown = tuning[index]
     roster.append(dict(id=ident, name=name, ability=ability, kind=kind, color=accent,
-                       description=TALENTS[kind], speed=round(speed+variation, 3),
-                       jump=round(jump-variation*.6, 3), weight=round(weight-variation, 3)))
+                       description=TALENTS[kind], speed=round(speed+speed_bonus, 3),
+                       jump=round(jump+jump_bonus, 3), weight=round(weight+weight_bonus, 3),
+                       power=power, cooldown=cooldown))
 roster_path = ROOT / 'data' / 'fighters.json'
 if not roster_path.exists():
     roster_path.write_text(json.dumps(roster, ensure_ascii=False, indent=2)+'\n')

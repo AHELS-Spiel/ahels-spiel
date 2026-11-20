@@ -303,7 +303,7 @@ func integrate(f: Fighter, delta: float) -> void:
 func begin_special(f: Fighter) -> void:
 	f.attack_kind = String(f.profile["kind"])
 	f.attack_time = 0.47
-	f.cooldown = 2.35
+	f.cooldown = float(f.profile["cooldown"])
 	f.pending = true
 	match f.attack_kind:
 		"dash":
@@ -329,6 +329,7 @@ func resolve_attack(index: int) -> void:
 	var at := f.p - Vector2(0, 34)
 	var reach := 85.0
 	var power := 9.0
+	var strength := 1.0 if kind == "normal" else float(f.profile["power"])
 	var vertical := 53.0
 	var forward_only := true
 	match kind:
@@ -353,10 +354,10 @@ func resolve_attack(index: int) -> void:
 			power = 15.0
 		"bolt", "echo":
 			shots.append(Shot.new(at + Vector2(f.facing * 29, 0), Vector2(f.facing * 455, 0),
-				index, 1.28, 11.0 if kind == "bolt" else 8.0, visual))
+				index, 1.28, strength * (11.0 if kind == "bolt" else 8.0), visual))
 			if kind == "echo":
 				shots.append(Shot.new(at + Vector2(f.facing * 24, -36), Vector2(f.facing * 378, -20),
-					index, 1.18, 7.0, visual))
+					index, 1.18, strength * 7.0, visual))
 			flash(at, visual, "burst")
 			return
 	flash(at + Vector2(f.facing * 33 if forward_only else 0, 0), visual,
@@ -369,7 +370,7 @@ func resolve_attack(index: int) -> void:
 	else:
 		var target := fighters[1 - index]
 		if target.stocks > 0 and in_reach(f, target.p, reach, vertical, forward_only):
-			hit(target, power, f.facing if forward_only else direction(f.p.x, target.p.x), visual)
+			hit(target, power * strength, f.facing if forward_only else direction(f.p.x, target.p.x), visual)
 
 
 func in_reach(f: Fighter, target: Vector2, reach: float, vertical: float, forward: bool) -> bool:
