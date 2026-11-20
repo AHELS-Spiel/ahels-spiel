@@ -1,0 +1,71 @@
+# AHELS Arena V4
+
+Ein Pixel-Plattform-Fighter mit 24 Klassenfiguren und zwei Lehrern. Treffer erhöhen den Rückstoß. Wer über den Rand fällt, verliert einen Versuch.
+
+## Starten
+
+Entpackt das ZIP vollständig und startet die Datei für euer System.
+
+- **Windows (x86-64)** · `AHELS-Arena.exe`
+- **Linux (x86-64)** · `AHELS-Arena.x86_64`
+- **macOS (Intel und Apple Silicon)** · `AHELS Arena.app`
+
+Die macOS-App ist ad hoc signiert. Je nach Sicherheitseinstellung braucht sie beim ersten Start eine Freigabe unter **Datenschutz & Sicherheit**.
+
+## Modi
+
+- **Solo-Kampagne.** Herr Haidenthaler erklärt im Turnsaal alles auf seine Weise. Die Tafel zeigt die richtigen Tasten. Danach folgen Pausenhof, Computerraum, Aula und das Finale gegen Herrn Grimmer. Springt über die Regalwelle, weicht den sichtbaren Kreidelinien aus und nutzt die Pause zum Kontern.
+- **Tutorial.** Die fünf Übungen aus dem Turnsaal sind auch direkt vom Hauptmenü aus erreichbar.
+- **Versus.** Spielt zu zweit am PC oder gegen die CPU. Wählt Figuren, Arena und auf Wunsch unter **Regeln** ein bis fünf Versuche, das Zeitlimit und die CPU-Stufe. Bei Zeitablauf zählen die verbleibenden Versuche, dann der niedrigere Rückstoßwert. Eine Revanche übernimmt dieselbe Arena und dieselben Regeln.
+- **Training.** Übt mit einer beliebigen Klassenfigur im Turnsaal gegen ein stehendes, springendes oder CPU-gesteuertes Gegenüber. Im Pausenmenü könnt ihr unter anderem den Rückstoßwert beim nächsten Reset festlegen. **R** setzt die Übung zurück, **F2** ändert das Gegnerverhalten.
+- **Turnier.** Spielt vier Duelle auf einer festen oder ausgelosten Route. Vor jeder Runde seht ihr das Duell und den Fortschritt. Eine Wiederholung behält Arena, Gegner und Schwierigkeit. Es gibt drei Turnierstufen.
+- **Überleben.** Ihr habt drei Versuche für fünf Wellen. Restversuche und Rückstoßwert gehen in die nächste Welle mit. Jede CPU-Figur hat einen Versuch. Euer Bestwert wird auf dem Gerät gespeichert.
+- **Bossprobe.** Nach dem Kampagnensieg könnt ihr das Bibliotheksfinale direkt üben.
+- **Netzwerk.** Wählt eure Figuren vor dem Verbinden. Der Host wählt die Arena und startet. Nach dem Ergebnis kann der Gast Bereitschaft für eine Revanche melden.
+- **Ziele.** Zeigt die auf diesem Gerät erreichten Spielziele.
+
+Pausenhof, Computerraum, Bibliothek, Werkstatt, Dachterrasse, Aula und Physiksaal sind Kampfarenen. Versus und Überleben bieten zusätzlich Zufallsauswahl. Freies Training und Tutorial finden im Turnsaal statt.
+
+### Standardsteuerung
+
+| Aktion | Spieler 1 / Netzwerkspieler | Spieler 2 lokal | Controller |
+| --- | --- | --- | --- |
+| Laufen | A / D | ← / → | Linker Stick oder Steuerkreuz |
+| Springen / Doppelsprung | W / Leertaste | ↑ | A |
+| Angreifen | F | J | X |
+| Spezialfähigkeit | G | K | Y |
+| Ausweichen | Q / Umschalt | L | B / RB |
+| Durch obere Plattform fallen | S | ↓ | Stick oder Steuerkreuz ↓ |
+
+**Esc** oder **Start** öffnet Pause. In Menüs bestätigt ihr mit Enter oder A und geht mit Esc oder B zurück. **F11** schaltet Vollbild um. In **Einstellungen** findet ihr getrennte Lautstärkeregler, Stummschaltung, reduzierte Effekte und die Steuerungsübersicht. Dort könnt ihr beide Tastaturlayouts ändern oder zurücksetzen. Die Tutorial-Tafel verwendet die aktiven Tasten. Einstellungen und Spielfortschritt werden beim Spielen gespeichert.
+
+### Netzwerk einrichten
+
+Im LAN verwendet ihr die im Menü angezeigte Host-Adresse und denselben UDP-Port. Der Standardport ist **24738/UDP**. Über das Internet benötigt der Host eine erreichbare IP-Adresse oder einen DNS-Namen und gegebenenfalls eine UDP-Portweiterleitung. Alternativ geht ein gemeinsames virtuelles Netzwerk. Beide Instanzen brauchen V4. In der Netzwerkpause läuft die Runde für das Gegenüber weiter.
+
+## Entwickeln und exportieren
+
+Öffnet `project.godot` in **Godot 4.6.3** und drückt **F5**. Das Projekt verwendet GDScript und den Compatibility-Renderer. Die Godot-Exportvorlagen für dieselbe Version und die drei Presets in `export_presets.cfg` erzeugen die Desktop-Ausgaben.
+
+| Datei | Zuständig |
+| --- | --- |
+| `src/main.gd` | Spielmodi, Menüs, Eingaben, Einstellungen und Audio |
+| `src/bout.gd` | Kampfregeln, Bewegung, Treffer, CPU und Übungen |
+| `src/arena_view.gd` | Pixel-Darstellung, HUD, Effekte und Tutorial-Tafel |
+| `src/duel_link.gd` | LAN-Lobby, Rollen, Start und Synchronisierung |
+| `data/arenas.json` | Arenen, Plattformen, Startpositionen und Vorschautexte |
+| `data/fighters.json` | Figuren, Fähigkeiten und Spielwerte |
+
+`python art/make_assets.py` erzeugt die Pixelbilder und Audiodateien mit Python und Pillow. Die beiden Felix- und Jonas-Figuren sind an der Figurennummer erkennbar.
+
+Nach `godot --headless --editor --import` lassen sich die Tests aus dem Projektordner ausführen. Verwendet pro Test ein frisches Profil.
+
+```sh
+XDG_DATA_HOME="$(mktemp -d)" godot --headless --script res://tests/core_flows.gd
+XDG_DATA_HOME="$(mktemp -d)" godot --headless --script res://tests/playthroughs.gd
+XDG_DATA_HOME="$(mktemp -d)" godot --headless --script res://tests/arena_flows.gd
+XDG_DATA_HOME="$(mktemp -d)" godot --headless --script res://tests/controller_flows.gd
+XDG_DATA_HOME="$(mktemp -d)" godot --headless --script res://tests/playthroughs.gd -- tournament
+```
+
+Startet für einen lokalen Netzwerktest `tests/network_flows.gd` in zwei Prozessen mit den Argumenten `-- host` und `-- guest`. Die Lizenztexte liegen in den Desktop-ZIPs unter `Lizenzen/` und die Schriftlizenzen im Repository unter `assets/fonts/`.

@@ -1,0 +1,266 @@
+[
+  {
+    "id": "turnsaal",
+    "name": "Turnsaal",
+    "color": "#436888",
+    "platforms": [
+      [
+        -1,
+        560,
+        1282,
+        44
+      ],
+      [
+        377,
+        432,
+        210,
+        22
+      ]
+    ],
+    "spawns": [
+      315,
+      925
+    ],
+    "description": "Durchgehender Boden zum Üben."
+  },
+  {
+    "id": "pausenhof",
+    "name": "Pausenhof",
+    "color": "#5fe4bd",
+    "platforms": [
+      [
+        180,
+        535,
+        920,
+        58
+      ],
+      [
+        240,
+        418,
+        246,
+        26
+      ],
+      [
+        794,
+        418,
+        246,
+        26
+      ],
+      [
+        524,
+        326,
+        232,
+        26
+      ]
+    ],
+    "spawns": [
+      360,
+      920
+    ],
+    "description": "Breite Mitte, drei Plattformen."
+  },
+  {
+    "id": "computerraum",
+    "name": "Computerraum",
+    "color": "#9bb4ff",
+    "platforms": [
+      [
+        145,
+        560,
+        990,
+        60
+      ],
+      [
+        335,
+        425,
+        242,
+        25
+      ],
+      [
+        710,
+        375,
+        242,
+        25
+      ]
+    ],
+    "spawns": [
+      330,
+      935
+    ],
+    "description": "Zwei versetzte Plattformen."
+  },
+  {
+    "id": "bibliothek",
+    "name": "Bibliothek",
+    "color": "#ffbb78",
+    "platforms": [
+      [
+        160,
+        550,
+        960,
+        60
+      ],
+      [
+        205,
+        402,
+        252,
+        26
+      ],
+      [
+        822,
+        402,
+        252,
+        26
+      ]
+    ],
+    "spawns": [
+      340,
+      923
+    ],
+    "description": "Breiter Boden, offene Seiten."
+  },
+  {
+    "id": "werkstatt",
+    "name": "Werkstatt",
+    "color": "#8ce6cc",
+    "platforms": [
+      [
+        136,
+        563,
+        1008,
+        62
+      ],
+      [
+        484,
+        448,
+        312,
+        28
+      ],
+      [
+        232,
+        335,
+        196,
+        26
+      ],
+      [
+        870,
+        335,
+        176,
+        26
+      ]
+    ],
+    "spawns": [
+      340,
+      940
+    ],
+    "description": "Tiefes Mittelpodest, hohe Seiten."
+  },
+  {
+    "id": "dachterrasse",
+    "name": "Dachterrasse",
+    "color": "#ffc98f",
+    "platforms": [
+      [
+        270,
+        545,
+        740,
+        54
+      ],
+      [
+        125,
+        426,
+        212,
+        24
+      ],
+      [
+        950,
+        400,
+        203,
+        24
+      ],
+      [
+        551,
+        322,
+        178,
+        24
+      ]
+    ],
+    "spawns": [
+      425,
+      855
+    ],
+    "description": "Schmaler Boden, offene Ränder."
+  },
+  {
+    "id": "aula",
+    "name": "Aula",
+    "color": "#ffcc97",
+    "platforms": [
+      [
+        139,
+        559,
+        1002,
+        58
+      ],
+      [
+        201,
+        444,
+        224,
+        24
+      ],
+      [
+        855,
+        444,
+        224,
+        24
+      ],
+      [
+        509,
+        351,
+        262,
+        24
+      ]
+    ],
+    "spawns": [
+      323,
+      957
+    ],
+    "description": "Breite Bühne mit hoher Mitte."
+  },
+  {
+    "id": "physiksaal",
+    "name": "Physiksaal",
+    "color": "#81e4ed",
+    "platforms": [
+      [
+        185,
+        569,
+        910,
+        61
+      ],
+      [
+        212,
+        455,
+        216,
+        23
+      ],
+      [
+        727,
+        411,
+        294,
+        23
+      ],
+      [
+        462,
+        320,
+        185,
+        24
+      ]
+    ],
+    "spawns": [
+      337,
+      943
+    ],
+    "description": "Versetzte Tische, hohes Podest."
+  }
+]
