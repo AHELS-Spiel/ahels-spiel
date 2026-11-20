@@ -33,7 +33,7 @@ Im selben Netzwerk nutzt ihr die LAN-Adresse, die im Menü angezeigt wird. Der S
 
 ## Figuren bearbeiten
 
-`data/fighters.json` enthält Anzeigenamen, Stärken und Werte für alle 24 auswählbaren Figuren und die beiden Lehrerfiguren. Die Nummern 01–18 folgen den gelieferten Portraits, 19–24 sind Ergänzungen für den Vergleichsbuild. Namen und Stärken können angepasst werden. Die Pixel-Grafiken sind in `assets/pixel/` gespeichert. Die mitgelieferten Werkzeuge erzeugen sie mit Python und Pillow.
+`data/fighters.json` enthält Anzeigenamen, Stärken und Werte für alle 24 auswählbaren Figuren und die beiden Lehrerfiguren. Alle 24 Figuren folgen den gelieferten Fotos und tragen die Vornamen der Klasse. Die Figurennummern unterscheiden die beiden Figuren mit dem Vornamen Felix und die beiden mit dem Vornamen Jonas. Die Spezialfähigkeiten sind Vorschläge und können gemeinsam angepasst werden. Die Pixel-Grafiken sind in `assets/pixel/` gespeichert. Die mitgelieferten Werkzeuge erzeugen sie mit Python und Pillow.
 
 ```sh
 python art/make_assets.py

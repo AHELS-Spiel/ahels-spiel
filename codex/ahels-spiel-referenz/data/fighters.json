@@ -1,7 +1,7 @@
 [
   {
     "id": "figur-01",
-    "name": "Tempo",
+    "name": "Lorian",
     "ability": "Startschuss",
     "kind": "dash",
     "color": "#ff8b7a",
@@ -14,7 +14,7 @@
   },
   {
     "id": "figur-02",
-    "name": "Takt",
+    "name": "Julian",
     "ability": "Metronom",
     "kind": "guard",
     "color": "#89e2e1",
@@ -27,7 +27,7 @@
   },
   {
     "id": "figur-03",
-    "name": "Feder",
+    "name": "Noel",
     "ability": "Sprungfeder",
     "kind": "rise",
     "color": "#f8c972",
@@ -40,7 +40,7 @@
   },
   {
     "id": "figur-04",
-    "name": "Drift",
+    "name": "Constantin",
     "ability": "Kurve",
     "kind": "dash",
     "color": "#b9a6fa",
@@ -53,7 +53,7 @@
   },
   {
     "id": "figur-05",
-    "name": "Echo",
+    "name": "Stefan",
     "ability": "Schallkreis",
     "kind": "burst",
     "color": "#fa9eb9",
@@ -66,7 +66,7 @@
   },
   {
     "id": "figur-06",
-    "name": "Glut",
+    "name": "Jonas",
     "ability": "Doppelfunke",
     "kind": "echo",
     "color": "#ffa76c",
@@ -79,7 +79,7 @@
   },
   {
     "id": "figur-07",
-    "name": "Wind",
+    "name": "Herbert",
     "ability": "Aufwind",
     "kind": "rise",
     "color": "#9fe5bf",
@@ -92,7 +92,7 @@
   },
   {
     "id": "figur-08",
-    "name": "Kompass",
+    "name": "Felix",
     "ability": "Reichweite",
     "kind": "long",
     "color": "#ffcf87",
@@ -105,7 +105,7 @@
   },
   {
     "id": "figur-09",
-    "name": "Wirbel",
+    "name": "Jakob",
     "ability": "Kreisel",
     "kind": "burst",
     "color": "#9bc0ff",
@@ -118,7 +118,7 @@
   },
   {
     "id": "figur-10",
-    "name": "Fokus",
+    "name": "Valentin",
     "ability": "Impulslinie",
     "kind": "bolt",
     "color": "#9ee4eb",
@@ -131,7 +131,7 @@
   },
   {
     "id": "figur-11",
-    "name": "Plan",
+    "name": "Lukas",
     "ability": "Schutzfeld",
     "kind": "guard",
     "color": "#b6befe",
@@ -144,7 +144,7 @@
   },
   {
     "id": "figur-12",
-    "name": "Knoten",
+    "name": "Pascal",
     "ability": "Sprungband",
     "kind": "rise",
     "color": "#e6dc85",
@@ -157,7 +157,7 @@
   },
   {
     "id": "figur-13",
-    "name": "Spur",
+    "name": "Amir",
     "ability": "Durchzug",
     "kind": "dash",
     "color": "#a2d5a0",
@@ -170,7 +170,7 @@
   },
   {
     "id": "figur-14",
-    "name": "Tinte",
+    "name": "Julijan",
     "ability": "Komet",
     "kind": "bolt",
     "color": "#ccb1fa",
@@ -183,7 +183,7 @@
   },
   {
     "id": "figur-15",
-    "name": "Blitz",
+    "name": "Sebastian",
     "ability": "Funkenflug",
     "kind": "echo",
     "color": "#faca78",
@@ -196,7 +196,7 @@
   },
   {
     "id": "figur-16",
-    "name": "Linse",
+    "name": "Felix",
     "ability": "Distanzblick",
     "kind": "long",
     "color": "#8cc4ff",
@@ -209,7 +209,7 @@
   },
   {
     "id": "figur-17",
-    "name": "Anker",
+    "name": "Jonas",
     "ability": "Fester Stand",
     "kind": "anchor",
     "color": "#ff9a94",
@@ -222,7 +222,7 @@
   },
   {
     "id": "figur-18",
-    "name": "Welle",
+    "name": "Lilly",
     "ability": "Wellenkamm",
     "kind": "burst",
     "color": "#fbb2c1",
@@ -235,7 +235,7 @@
   },
   {
     "id": "figur-19",
-    "name": "Puls",
+    "name": "Paul",
     "ability": "Pulsring",
     "kind": "burst",
     "color": "#83e9d3",
@@ -248,7 +248,7 @@
   },
   {
     "id": "figur-20",
-    "name": "Raster",
+    "name": "Maximilian",
     "ability": "Gitterblitz",
     "kind": "bolt",
     "color": "#fbd070",
@@ -261,7 +261,7 @@
   },
   {
     "id": "figur-21",
-    "name": "Kante",
+    "name": "Jakub",
     "ability": "Kantentritt",
     "kind": "long",
     "color": "#ffc1a0",
@@ -274,7 +274,7 @@
   },
   {
     "id": "figur-22",
-    "name": "Funk",
+    "name": "Isabela",
     "ability": "Funkfolge",
     "kind": "echo",
     "color": "#bbabf7",
@@ -287,7 +287,7 @@
   },
   {
     "id": "figur-23",
-    "name": "Lot",
+    "name": "Daniel",
     "ability": "Ausgleich",
     "kind": "anchor",
     "color": "#a2dba6",
@@ -300,7 +300,7 @@
   },
   {
     "id": "figur-24",
-    "name": "Klick",
+    "name": "Simon",
     "ability": "Klickschirm",
     "kind": "guard",
     "color": "#ecb5e3",

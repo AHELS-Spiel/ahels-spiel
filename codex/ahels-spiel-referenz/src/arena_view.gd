@@ -301,7 +301,10 @@ func draw_status(index: int) -> void:
 	draw_rect(Rect2(x, 24, 58, 61), Color("#253650"))
 	draw_rect(Rect2(x, 24, 3, 61), color)
 	draw_texture_rect(catalog.portraits[f.id], Rect2(x+2, 26, 54, 61), false)
-	draw_string(BOLD, Vector2(x+73, 41), String(f.profile["name"]), HORIZONTAL_ALIGNMENT_LEFT, -1, 16, PAPER)
+	var fighter_name := String(f.profile["name"])
+	if f.id in [5, 7, 15, 16]:
+		fighter_name += " · %02d" % (f.id + 1)
+	draw_string(BOLD, Vector2(x+73, 41), fighter_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, PAPER)
 	if bout.mode != "training":
 		if f.id == ArenaCatalog.BOSS:
 			var s := clampf(1.0 - f.balance / 131.0, 0, 1)
