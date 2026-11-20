@@ -20,30 +20,30 @@ for directory in (ART, AUDIO, ROOT / 'data'):
 # sind Vorschläge für den Spieltest und können unabhängig vom Sprite getauscht werden.
 # Name, Stärke, Typ, Akzent, Haare, Schnitt, Kleidung, Haut, Brille/Details.
 PROFILES = [
-    ('Tempo', 'Startschuss', 'dash', '#ff8b7a', '#422a22', 'sweep', '#ede8e2', '#e5ab86', 'collar'),
-    ('Takt', 'Metronom', 'guard', '#89e2e1', '#52392a', 'crop', '#2d394b', '#e6ae8e', 'polo'),
-    ('Feder', 'Sprungfeder', 'rise', '#f8c972', '#5a3829', 'fade', '#383646', '#e4ae95', 'hood'),
-    ('Drift', 'Kurve', 'dash', '#b9a6fa', '#3e2b25', 'fringe', '#343044', '#e7b89a', ''),
-    ('Echo', 'Schallkreis', 'burst', '#fa9eb9', '#6e402b', 'wave', '#615063', '#f3b49d', 'jacket'),
-    ('Glut', 'Doppelfunke', 'echo', '#ffa76c', '#873a25', 'curl', '#303e3b', '#f5bd9f', 'goatee'),
-    ('Wind', 'Aufwind', 'rise', '#9fe5bf', '#694834', 'messy', '#7e929d', '#e6b08d', ''),
-    ('Kompass', 'Reichweite', 'long', '#ffcf87', '#4c3229', 'part', '#835047', '#edb590', 'polo'),
-    ('Wirbel', 'Kreisel', 'burst', '#9bc0ff', '#69412a', 'curl', '#68564f', '#edb29a', 'jacket'),
-    ('Fokus', 'Impulslinie', 'bolt', '#9ee4eb', '#77513a', 'curl', '#526680', '#edbd99', 'round'),
-    ('Plan', 'Schutzfeld', 'guard', '#b6befe', '#493326', 'messy', '#303b69', '#eab095', 'square'),
-    ('Knoten', 'Sprungband', 'rise', '#e6dc85', '#4d3527', 'quiff', '#e4dad3', '#e4a784', 'hood'),
-    ('Spur', 'Durchzug', 'dash', '#a2d5a0', '#352720', 'fringe', '#393542', '#dba581', 'stubble'),
-    ('Tinte', 'Komet', 'bolt', '#ccb1fa', '#30231f', 'wave_up', '#343141', '#e3ad86', ''),
-    ('Blitz', 'Funkenflug', 'echo', '#faca78', '#805b37', 'side', '#353448', '#f0c1a2', ''),
-    ('Linse', 'Distanzblick', 'long', '#8cc4ff', '#644434', 'side', '#302d44', '#efbc9d', 'round'),
-    ('Anker', 'Fester Stand', 'anchor', '#ff9a94', '#51362c', 'curl', '#ededef', '#ecc19b', 'goatee'),
-    ('Welle', 'Wellenkamm', 'burst', '#fbb2c1', '#a98152', 'longhair', '#3d3346', '#f6c3a5', 'gold'),
-    ('Puls', 'Pulsring', 'burst', '#83e9d3', '#383539', 'fade', '#46695f', '#c88962', 'hood'),
-    ('Raster', 'Gitterblitz', 'bolt', '#fbd070', '#522c25', 'part', '#714378', '#bd805c', 'square'),
-    ('Kante', 'Kantentritt', 'long', '#ffc1a0', '#bb794e', 'crop', '#405a9a', '#efbfa6', ''),
-    ('Funk', 'Funkfolge', 'echo', '#bbabf7', '#2e2331', 'longhair', '#aa5b6e', '#c89479', 'gold'),
-    ('Lot', 'Ausgleich', 'anchor', '#a2dba6', '#4c302e', 'sweep', '#4a7697', '#d69f7e', 'polo'),
-    ('Klick', 'Klickschirm', 'guard', '#ecb5e3', '#534038', 'side', '#966254', '#ebc4ac', 'jacket'),
+    ('Lorian', 'Startschuss', 'dash', '#ff8b7a', '#422a22', 'sweep', '#ede8e2', '#e5ab86', 'collar'),
+    ('Julian', 'Metronom', 'guard', '#89e2e1', '#52392a', 'crop', '#2d394b', '#e6ae8e', 'polo'),
+    ('Noel', 'Sprungfeder', 'rise', '#f8c972', '#5a3829', 'fade', '#383646', '#e4ae95', 'hood'),
+    ('Constantin', 'Kurve', 'dash', '#b9a6fa', '#3e2b25', 'fringe', '#343044', '#e7b89a', ''),
+    ('Stefan', 'Schallkreis', 'burst', '#fa9eb9', '#6e402b', 'wave', '#615063', '#f3b49d', 'jacket'),
+    ('Jonas', 'Doppelfunke', 'echo', '#ffa76c', '#873a25', 'curl', '#303e3b', '#f5bd9f', 'goatee'),
+    ('Herbert', 'Aufwind', 'rise', '#9fe5bf', '#694834', 'messy', '#7e929d', '#e6b08d', ''),
+    ('Felix', 'Reichweite', 'long', '#ffcf87', '#4c3229', 'part', '#835047', '#edb590', 'polo'),
+    ('Jakob', 'Kreisel', 'burst', '#9bc0ff', '#69412a', 'curl', '#68564f', '#edb29a', 'jacket'),
+    ('Valentin', 'Impulslinie', 'bolt', '#9ee4eb', '#77513a', 'curl', '#526680', '#edbd99', 'round'),
+    ('Lukas', 'Schutzfeld', 'guard', '#b6befe', '#493326', 'messy', '#303b69', '#eab095', 'square'),
+    ('Pascal', 'Sprungband', 'rise', '#e6dc85', '#4d3527', 'quiff', '#e4dad3', '#e4a784', 'hood'),
+    ('Amir', 'Durchzug', 'dash', '#a2d5a0', '#352720', 'fringe', '#393542', '#dba581', 'stubble'),
+    ('Julijan', 'Komet', 'bolt', '#ccb1fa', '#30231f', 'wave_up', '#343141', '#e3ad86', ''),
+    ('Sebastian', 'Funkenflug', 'echo', '#faca78', '#805b37', 'side', '#353448', '#f0c1a2', ''),
+    ('Felix', 'Distanzblick', 'long', '#8cc4ff', '#644434', 'side', '#302d44', '#efbc9d', 'round'),
+    ('Jonas', 'Fester Stand', 'anchor', '#ff9a94', '#51362c', 'curl', '#ededef', '#ecc19b', 'goatee'),
+    ('Lilly', 'Wellenkamm', 'burst', '#fbb2c1', '#a98152', 'longhair', '#3d3346', '#f6c3a5', 'gold'),
+    ('Paul', 'Pulsring', 'burst', '#83e9d3', '#604031', 'fade', '#e9ded0', '#e7b89c', 'metal_round'),
+    ('Maximilian', 'Gitterblitz', 'bolt', '#fbd070', '#54372b', 'center_wave', '#817875', '#e9bd9f', 'chain'),
+    ('Jakub', 'Kantentritt', 'long', '#ffc1a0', '#2a2422', 'bowl', '#36303b', '#e9c0a4', 'hood_glasses'),
+    ('Isabela', 'Funkfolge', 'echo', '#bbabf7', '#442727', 'longstraight', '#eee5dc', '#d7a188', 'gold'),
+    ('Daniel', 'Ausgleich', 'anchor', '#a2dba6', '#76553b', 'fade', '#f3eee6', '#efbea4', 'polo_glasses'),
+    ('Simon', 'Klickschirm', 'guard', '#ecb5e3', '#563d2d', 'fade', '#716f77', '#e8b39a', 'zip_jacket'),
     ('Herr Haidenthaler', 'Tutorial', 'guard', '#9ce6c4', '#513b30', 'sweep', '#f4f1e8', '#e5b79c', 'teacher'),
     ('Herr Grimmer', 'Regalwelle', 'burst', '#f4a48a', '#483027', 'sweep', '#688eac', '#e9b99d', 'round'),
 ]
@@ -94,7 +94,7 @@ def sprite(profile, frame, index):
         r(x+stride, 41+bend, x+5+stride, 42+bend, shade(color, .35))
         r(x+stride, 43+bend, x+5+stride, 43+bend, '#d9d6d7')
 
-    if cut in ('longhair', 'wave', 'part'):
+    if cut in ('longhair', 'longstraight', 'wave', 'center_wave', 'part'):
         poly([(10, 13), (26, 12), (28, 28), (25, 33), (19, 29), (11, 31), (9, 25)],
              shade(hair, -.20))
     poly([(11, 24), (15, 21), (23, 21), (27, 24), (29, 32), (26, 37), (11, 37), (9, 31)], outline)
@@ -102,18 +102,25 @@ def sprite(profile, frame, index):
     r(12, 29, 14, 35, shade(shirt, -.24))
     r(15, 32, 23, 34, shade(shirt, -.12))
     r(16, 25, 22, 27, shade(shirt, .26))
-    if detail in ('teacher', 'polo', 'collar'):
+    if detail in ('teacher', 'polo', 'collar', 'polo_glasses'):
         col = '#bc8b5b' if detail == 'collar' else shade(shirt, .36)
         poly([(13, 24), (17, 24), (18, 28), (15, 27)], col)
         poly([(22, 23), (26, 25), (23, 28), (20, 27)], shade(col, -.12))
         r(19, 28, 19, 33, shade(shirt, -.32))
-    elif detail == 'hood':
+    elif detail in ('hood', 'hood_glasses'):
         poly([(12, 23), (14, 27), (18, 29), (24, 26), (25, 23)], shade(shirt, -.42))
         r(16, 27, 16, 30, shade(shirt, .40))
         r(22, 26, 22, 29, shade(shirt, .40))
     elif detail == 'jacket':
         poly([(18, 25), (22, 25), (23, 35), (17, 35)], '#e3ccb9')
         r(16, 29, 16, 34, shade(shirt, .3))
+    elif detail == 'zip_jacket':
+        poly([(11, 24), (15, 24), (17, 35), (11, 35)], '#242530')
+        poly([(23, 24), (27, 25), (27, 35), (22, 35)], '#242530')
+        r(16, 28, 16, 34, '#b5b0b0')
+    elif detail == 'chain':
+        poly([(15, 25), (19, 30), (23, 25), (22, 28), (19, 31), (17, 29)], '#d5ba7a')
+        r(19, 30, 19, 33, '#d5ba7a')
     elif detail == 'gold':
         poly([(16, 25), (20, 28), (22, 26), (21, 29), (19, 29)], '#dfb86d')
     else:

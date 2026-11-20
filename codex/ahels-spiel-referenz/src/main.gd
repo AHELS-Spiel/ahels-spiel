@@ -554,7 +554,11 @@ func show_result() -> void:
 	var subtitle := String(bout.stage["name"])
 	var victor := bout.winner
 	if victor >= 0:
-		title = "%s GEWINNT" % String(bout.fighters[victor].profile["name"]).to_upper()
+		var winner_fighter := bout.fighters[victor]
+		var winner_name := String(winner_fighter.profile["name"])
+		if winner_fighter.id in [5, 7, 15, 16]:
+			winner_name += " · %02d" % (winner_fighter.id + 1)
+		title = "%s GEWINNT" % winner_name.to_upper()
 	var primary := "Noch eine Runde"
 	var next_action := restart_bout
 	var enabled := true

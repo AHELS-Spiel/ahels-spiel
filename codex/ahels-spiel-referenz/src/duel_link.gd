@@ -6,7 +6,7 @@ signal match_started(stage_index: int, one: int, two: int)
 signal state_received(state: Dictionary)
 signal connection_lost(message: String)
 
-const VERSION := 1
+const VERSION := 2
 const DEFAULT_PORT := 24738
 const WAIT_SECONDS := 12.0
 

@@ -23,17 +23,32 @@ FACES = [
     (17, 10, 63, 35, 10, 14, '#5c7581', 1),
     (18, 12, 64, 36, 10, 14, '#78855f', 2),
     (17, 10, 60, 34, 11, 12, '#7a7448', 3),
-    (18, 12, 63, 35, 10, 13, '#615446', 2),
-    (17, 11, 60, 35, 10, 13, '#6c5d46', 3),
-    (17, 11, 65, 36, 10, 14, '#5e7777', 1),
-    (18, 11, 61, 34, 10, 13, '#674d40', 3),
-    (17, 11, 62, 36, 10, 13, '#5b746b', 2),
-    (18, 14, 63, 35, 10, 13, '#536e77', 2),
+    (17, 12, 63, 35, 10, 13, '#77644e', 4),
+    (17, 11, 64, 35, 10, 14, '#66808d', 0),
+    (17, 11, 61, 36, 10, 13, '#67767b', 1),
+    (17, 11, 61, 35, 10, 13, '#51403b', 2),
+    (17, 12, 63, 35, 10, 13, '#657b79', 2),
+    (17, 12, 62, 35, 10, 13, '#617782', 1),
     (17, 12, 66, 36, 10, 14, '#536f91', 2),
     (17, 12, 65, 36, 10, 14, '#785f4c', 4),
 ]
 
 HAIR = {
+    'center_wave': [(13,43),(11,38),(10,31),(8,26),(10,20),(12,17),(17,15),
+                    (20,11),(25,10),(29,11),(33,8),(36,10),(40,8),(44,10),
+                    (49,10),(54,13),(57,17),(60,20),(60,26),(62,31),(60,37),
+                    (57,40),(55,37),(53,32),(49,28),(45,30),(42,31),(39,27),
+                    (36,22),(34,26),(30,28),(27,31),(24,30),(20,34),(18,42)],
+    'bowl': [(14,41),(12,34),(11,27),(12,20),(15,14),(21,10),(29,8),
+             (38,8),(47,9),(54,12),(58,17),(61,23),(60,30),(58,35),
+             (55,39),(54,33),(52,31),(49,32),(46,30),(43,32),(40,30),
+             (37,32),(33,30),(30,32),(27,30),(24,32),(20,31),(18,40)],
+    'longstraight': [(9,80),(9,70),(10,61),(10,53),(11,44),(11,34),(13,25),
+                    (17,18),(22,13),(28,10),(34,8),(38,8),(44,10),(50,12),
+                    (55,17),(59,24),(61,34),(61,45),(62,55),(64,65),(65,79),
+                    (56,81),(51,75),(53,62),(54,53),(54,42),(52,31),(49,24),
+                    (44,20),(37,16),(32,19),(26,24),(22,31),(20,41),(20,52),
+                    (21,61),(22,75),(17,81)],
     'sweep': [(16,38),(13,29),(14,20),(16,14),(23,10),(31,8),(41,10),(49,12),
               (55,17),(59,25),(57,39),(53,35),(52,26),(49,23),(44,22),(33,26),(22,27),(19,34)],
     'crop': [(16,38),(14,31),(14,22),(17,16),(24,11),(33,10),(39,11),(41,10),
@@ -114,7 +129,7 @@ def portrait(profile, index, bust=True):
         poly([(49,72),(60,74),(65,80),(66,83),(51,83)],pair_shade(shirt,'#e5c6ab',.21))
         poly([(28,55),(45,55),(45,64),(51,70),(44,78),(31,77),(24,71),(28,64)],f_shadow)
         poly([(32,59),(43,58),(42,66),(47,70),(42,76),(35,76),(32,70)],skin)
-        if detail in ('collar', 'polo', 'teacher'):
+        if detail in ('collar', 'polo', 'teacher', 'polo_glasses'):
             collar = '#bf9166' if detail=='collar' else pair_shade(shirt,'#fff3dd',.17)
             poly([(26,65),(27,69),(35,75),(24,78),(20,71)],collar)
             poly([(44,64),(52,69),(48,79),(38,76),(44,71)],pair_shade(collar,'#695064',.25))
@@ -122,24 +137,34 @@ def portrait(profile, index, bust=True):
             if detail=='collar':
                 line([(25,69),(30,74)],'#6d503d',2)
                 line([(47,69),(43,75)],'#6d503d',2)
-        elif detail == 'hood':
+        elif detail in ('hood', 'hood_glasses'):
             poly([(22,65),(31,73),(43,73),(51,65),(59,70),(51,79),(39,83),(26,80),(17,71)],
                  pair_shade(shirt,'#172135',.30))
             line([(22,68),(30,75),(29,83)],pair_shade(shirt,'#ede0cf',.48))
             line([(50,68),(44,76),(46,83)],pair_shade(shirt,'#ede0cf',.55))
+            if detail == 'hood_glasses':
+                poly([(1,83),(4,75),(18,69),(27,77),(28,83)], '#25232d')
+                poly([(45,83),(47,75),(52,69),(66,76),(69,83)], '#25232d')
+        elif detail == 'zip_jacket':
+            poly([(1,83),(5,75),(20,68),(27,78),(27,83)], '#272630')
+            poly([(46,83),(47,75),(52,68),(65,75),(69,83)], '#272630')
+            line([(20,69),(26,78),(26,83)], '#c7c4bd')
         elif detail == 'jacket':
             poly([(24,67),(27,73),(28,83),(47,83),(47,72),(49,68)],'#e7dfd6' if index==8 else '#9e5f49')
             line([(22,71),(26,81),(26,83)],pair_shade(shirt,'#d2af9a',.34),2)
         else:
             line([(24,68),(30,75),(42,75),(48,68)],pair_shade(shirt,'#4d384e',.53),2)
-            if detail == 'gold' or index == 16:
+            if detail in ('gold', 'chain') or index == 16:
                 line([(27,67),(31,74),(37,78),(42,75),(47,68)],
-                    '#c99959' if detail == 'gold' else '#b7bbca')
+                    '#c99959' if detail in ('gold', 'chain') else '#b7bbca')
+                if detail == 'chain':
+                    line([(37,77),(37,82)], '#c99959')
+                    line([(35,79),(39,79)], '#c99959')
         if detail == 'teacher':
             poly([(23,66),(25,65),(48,82),(45,83)],'#7d543b')
             line([(23,67),(42,82)],'#af7b49')
-    if cut in ('longhair','wave','part'):
-        edge=(67 if bust else 62) if cut=='longhair' else 59
+    if cut in ('longhair','longstraight','wave','center_wave','part'):
+        edge=(67 if bust else 62) if cut in ('longhair', 'longstraight') else 59
         poly([(14,22),(53,22),(60,43),(61,edge),(51,edge),(49,55),(18,55),(12,edge),(10,50)],h_shadow)
 
     ear_y = eyes - 3
@@ -186,7 +211,7 @@ def portrait(profile, index, bust=True):
     mouth_w = 7 if index not in (8, 13, 25) else 9
     line([(36-mouth_w,mouth_y-smile//2),(32,mouth_y),(38,mouth_y+1),
           (42,mouth_y),(36+mouth_w,mouth_y-smile+1)],'#995d60')
-    if index in (0,8,13,25):
+    if index in (0,8,13,18,25):
         poly([(31,mouth_y),(40,mouth_y),(42,mouth_y-1),(39,mouth_y+2),(33,mouth_y+2)],'#f7e6ce')
     line([(33,mouth_y+3),(40,mouth_y+3)],pair_shade(skin,'#ad6a72',.46))
     if detail in ('goatee','stubble') or index in (0,13):
@@ -202,11 +227,11 @@ def portrait(profile, index, bust=True):
     hc=Image.new('RGBA',img.size,h_shadow)
     hd=ImageDraw.Draw(hc)
     hd.polygon([(x,max(6,y-2)) for x,y in contour],fill=hair)
-    if cut in ('side','sweep','part','longhair','fringe','crop','fade'):
+    if cut in ('side','sweep','part','longhair','longstraight','fringe','crop','fade','bowl'):
         for i in range(40):
             sx = rng.randint(10,54)
             sy = rng.randint(8,29)
-            if cut in ('longhair','part'):
+            if cut in ('longhair','longstraight','part'):
                 side = -1 if sx < 35 else 1
                 q = [(sx,sy),(sx+side*3,sy+7),(sx+side*5,sy+15)]
             else:
@@ -218,7 +243,7 @@ def portrait(profile, index, bust=True):
             a = rng.randint(2,6)
             hd.line([(sx,sy),(sx+2,sy-2),(sx+a,sy-1),(sx+a+1,sy+2)],
                     fill=rng.choice([h_mid,h_light,h_shadow,h_shadow]),width=1)
-    if cut in ('longhair','wave'):
+    if cut in ('longhair','longstraight','wave'):
         for side in (-1,1):
             for i in range(8):
                 x=36+side*(17+i)
@@ -226,18 +251,19 @@ def portrait(profile, index, bust=True):
                 hd.line([(x,y),(x+side*2,y+10),(x-side,y+19),(x+side*2,y+28),
                     (x+side*3,y+35)],fill=h_light if i%3==1 else h_mid,width=1)
     img.paste(hc,(0,0),hm)
-    if detail in ('round','square','teacher'):
-        ink = '#4d3e3e' if detail=='teacher' else '#221f2b'
-        gleam = '#b98b70' if detail=='teacher' else '#5a5666'
+    if detail in ('round','square','teacher','metal_round','hood_glasses','polo_glasses'):
+        metal = detail in ('metal_round','hood_glasses','polo_glasses')
+        ink = '#66594e' if metal else '#4d3e3e' if detail=='teacher' else '#221f2b'
+        gleam = '#c4af97' if metal else '#b98b70' if detail=='teacher' else '#5a5666'
         for k,x in enumerate((35-spacing,36+spacing)):
             y=eyes+(angle if k else 0)
-            if detail == 'round':
+            if detail in ('round','metal_round','hood_glasses','polo_glasses'):
                 points=[(x-8,y-3),(x-6,y-5),(x+5,y-5),(x+8,y-3),(x+7,y+5),
                         (x+3,y+8),(x-3,y+8),(x-7,y+4),(x-8,y-3)]
             else:
                 points=[(x-8,y-5),(x+8,y-5),(x+7,y+6),(x+5,y+7),
                         (x-6,y+7),(x-7,y+5),(x-8,y-5)]
-            line(points,ink,1 if detail=='teacher' else 2)
+            line(points,ink,1 if detail=='teacher' or metal else 2)
             line([(x-5,y-5),(x,y-5)],gleam)
             line([(x-4,y+1),(x-3,y+2)],pair_shade(skin,'#d4e4f3',.45))
         line([(35-spacing+8,eyes-2),(35+spacing-7,eyes-2+angle)],ink,1)
