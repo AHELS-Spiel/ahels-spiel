@@ -57,7 +57,7 @@
       360,
       920
     ],
-    "description": "Breiter Boden, zwei Seiten und eine hohe Mitte."
+    "description": "Breite Mitte, drei Plattformen."
   },
   {
     "id": "computerraum",
@@ -87,7 +87,7 @@
       330,
       935
     ],
-    "description": "Zwei Plattformen mit versetzter Höhe."
+    "description": "Zwei versetzte Plattformen."
   },
   {
     "id": "bibliothek",
@@ -117,7 +117,7 @@
       340,
       923
     ],
-    "description": "Breiter Boden und zwei offene Seitenplattformen."
+    "description": "Breiter Boden, offene Seiten."
   },
   {
     "id": "werkstatt",
@@ -153,7 +153,7 @@
       340,
       940
     ],
-    "description": "Tiefe Mitte und hohe Seitenplattformen."
+    "description": "Tiefes Mittelpodest, hohe Seiten."
   },
   {
     "id": "dachterrasse",
@@ -189,7 +189,7 @@
       425,
       855
     ],
-    "description": "Schmaler Boden, Seitenkanten und hohe Mitte."
+    "description": "Schmaler Boden, offene Ränder."
   },
   {
     "id": "aula",
@@ -225,7 +225,7 @@
       323,
       957
     ],
-    "description": "Breite Bühne mit niedrigen Seiten und hoher Mitte."
+    "description": "Breite Bühne mit hoher Mitte."
   },
   {
     "id": "physiksaal",
@@ -261,6 +261,6 @@
       337,
       943
     ],
-    "description": "Versetzte Labortische und ein schmales oberes Podest."
+    "description": "Versetzte Tische, hohes Podest."
   }
 ]

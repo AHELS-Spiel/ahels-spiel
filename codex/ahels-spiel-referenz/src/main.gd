@@ -791,8 +791,8 @@ func show_arena_picker(source: String = "versus") -> void:
 		if index == chosen:
 			label("Gewählt", Rect2(194, 163, 71, 25), 12, BOLD, DARK, HORIZONTAL_ALIGNMENT_RIGHT, card)
 			chosen_card = card
-		var hint := "Lost beim Start eine der sieben Kampfarenen." if index < 0 else String(catalog.arenas[index]["description"])
-		label(hint, Rect2(13, 190, 251, 34), 14, TEXT, ink, HORIZONTAL_ALIGNMENT_LEFT, card, true)
+		var hint := "Lost eine von sieben Kampfarenen." if index < 0 else String(catalog.arenas[index]["description"])
+		label(hint, Rect2(13, 189, 251, 35), 14, TEXT, ink, HORIZONTAL_ALIGNMENT_LEFT, card)
 	if is_instance_valid(chosen_card):
 		chosen_card.grab_focus()
 	else:
