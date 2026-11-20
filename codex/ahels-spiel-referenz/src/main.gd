@@ -12,6 +12,7 @@ const DIM := Color("#b7c6d3")
 const MINT := Color("#9ee9ce")
 const PEACH := Color("#ffad94")
 const SAVE_FILE := "user://arena.cfg"
+const TOURNAMENT_ROUNDS := 4
 const KEYS_ONE := [[KEY_A], [KEY_D], [KEY_W, KEY_SPACE], [KEY_F], [KEY_G], [KEY_Q, KEY_SHIFT], [KEY_S]]
 const KEYS_TWO := [[KEY_LEFT], [KEY_RIGHT], [KEY_UP], [KEY_J], [KEY_K], [KEY_L], [KEY_DOWN]]
 const GAMEPAD := [JOY_BUTTON_DPAD_LEFT, JOY_BUTTON_DPAD_RIGHT, JOY_BUTTON_A, JOY_BUTTON_X,
@@ -29,6 +30,9 @@ var picking := 0
 var stage_pick := 1
 var versus_bot := true
 var chapter := 0
+var tournament_round := 0
+var tournament_matchups: Array[Vector2i] = []
+var tournament_wins := 0
 var paused := false
 var outcome_shown := false
 var heard_lesson := false
@@ -58,6 +62,7 @@ func _ready() -> void:
 	add_child(view)
 	link = DuelLink.new()
 	link.name = "DuelLink"
+	link.arena_count = catalog.arenas.size()
 	add_child(link)
 	link.lobby_updated.connect(refresh_lobby)
 	link.match_started.connect(network_bout)
@@ -83,12 +88,14 @@ func load_settings() -> void:
 	if config.load(SAVE_FILE) == OK:
 		muted = config.get_value("audio", "muted", false)
 		completed = config.get_value("campaign", "finished", false)
+		tournament_wins = config.get_value("tournament", "wins", 0)
 
 
 func save_settings() -> void:
 	var config := ConfigFile.new()
 	config.set_value("audio", "muted", muted)
 	config.set_value("campaign", "finished", completed)
+	config.set_value("tournament", "wins", tournament_wins)
 	config.save(SAVE_FILE)
 
 
@@ -258,12 +265,14 @@ func show_home() -> void:
 	label("ARENA", Rect2(59, 195, 605, 113), 109, DISPLAY)
 	label("Der Pixel-Plattform-Fighter eurer Klasse", Rect2(68, 319, 500, 30), 20, TEXT, PAPER)
 	var play := button("Solo-Kampagne", Rect2(68, 375, 356, 56), func() -> void: show_selection("campaign"), true)
-	button("Versus", Rect2(68, 444, 356, 52), func() -> void: show_selection("versus"))
-	button("Netzwerk", Rect2(68, 507, 356, 52), func() -> void: show_selection("network"))
+	button("Turnier", Rect2(68, 441, 356, 46), func() -> void: show_selection("tournament"))
+	button("Versus", Rect2(68, 497, 356, 46), func() -> void: show_selection("versus"))
+	button("Netzwerk", Rect2(68, 553, 356, 46), func() -> void: show_selection("network"))
 	if completed:
-		label("Kampagne abgeschlossen", Rect2(69, 575, 420, 26), 17, BOLD, MINT)
+		label("Kampagne abgeschlossen", Rect2(69, 604, 420, 23), 15, BOLD, MINT)
 	button("Steuerung", Rect2(68, 650, 150, 42), show_controls)
 	button("Ton aus" if not muted else "Ton an", Rect2(231, 650, 133, 42), toggle_audio)
+	button("Tutorial", Rect2(377, 650, 133, 42), func() -> void: show_selection("training"))
 	label("F11  Vollbild", Rect2(1006, 651, 202, 42), 16, BOLD, DIM, HORIZONTAL_ALIGNMENT_RIGHT)
 	play.grab_focus()
 
@@ -299,7 +308,14 @@ func show_selection(kind: String) -> void:
 	selection_mode = kind
 	set_menu("select")
 	var title := "Figur wählen" if kind != "versus" else "Versus"
-	var detail := "Solo-Kampagne" if kind == "campaign" else "Netzwerkduell" if kind == "network" else "Lokal am selben PC"
+	var details := {
+		"campaign": "Solo-Kampagne",
+		"tournament": "Turniersiege · %d" % tournament_wins if tournament_wins > 0 else "Turnier · Vier Duelle",
+		"training": "Tutorial mit Herrn Haidenthaler",
+		"network": "Netzwerkduell",
+		"versus": "Lokal am selben PC",
+	}
+	var detail: String = details[kind]
 	header(title, detail, show_home)
 
 	var chosen := selected.x if picking == 0 else selected.y
@@ -353,6 +369,8 @@ func show_selection(kind: String) -> void:
 		button("Runde starten", Rect2(829, 618, 392, 53), start_versus, true)
 	elif kind == "network":
 		button("Zur Lobby", Rect2(829, 618, 392, 53), show_lobby, true)
+	elif kind == "tournament":
+		button("Turnier starten", Rect2(829, 618, 392, 53), begin_tournament, true)
 	else:
 		button("Tutorial starten", Rect2(829, 618, 392, 53), begin_campaign, true)
 	if is_instance_valid(selected_card):
@@ -378,7 +396,7 @@ func toggle_versus() -> void:
 
 
 func next_arena() -> void:
-	stage_pick = stage_pick % 3 + 1
+	stage_pick = stage_pick % (catalog.arenas.size() - 1) + 1
 	show_selection(selection_mode)
 
 
@@ -396,6 +414,25 @@ func next_chapter() -> void:
 			begin_bout(2, selected.x, 12, "solo", 1)
 		3:
 			begin_bout(3, selected.x, ArenaCatalog.BOSS, "boss")
+
+
+func begin_tournament() -> void:
+	var arena_indices := range(1, catalog.arenas.size())
+	var opponents := range(ArenaCatalog.STUDENTS)
+	opponents.erase(selected.x)
+	arena_indices.shuffle()
+	opponents.shuffle()
+	tournament_matchups.clear()
+	for round_index in TOURNAMENT_ROUNDS:
+		tournament_matchups.append(Vector2i(arena_indices[round_index], opponents[round_index]))
+	tournament_round = -1
+	next_tournament_round()
+
+
+func next_tournament_round() -> void:
+	tournament_round += 1
+	var matchup := tournament_matchups[tournament_round]
+	begin_bout(matchup.x, selected.x, matchup.y, "tournament", tournament_round)
 
 
 func start_versus() -> void:
@@ -433,7 +470,7 @@ func show_lobby() -> void:
 
 
 func cycle_lobby_arena() -> void:
-	stage_pick = stage_pick % 3 + 1
+	stage_pick = stage_pick % (catalog.arenas.size() - 1) + 1
 	var chooser := ui.get_node("ArenaChoice") as Button
 	chooser.text = String(catalog.arenas[stage_pick]["name"]) + "  ›"
 
@@ -501,6 +538,7 @@ func receive_state(state: Dictionary) -> void:
 func begin_bout(arena: int, one: int, two: int, mode: String, difficulty: int = 1) -> void:
 	bout = ArenaBout.new(catalog, arena, one, two, mode, difficulty)
 	view.bout = bout
+	view.match_context = "TURNIER · RUNDE %d / %d" % [tournament_round + 1, TOURNAMENT_ROUNDS] if mode == "tournament" else ""
 	view.smooth_remote = mode == "network" and not link.hosting
 	screen = "bout"
 	paused = false
@@ -516,8 +554,11 @@ func show_tutorial_finish() -> void:
 	style_panel(Rect2(720, 157, 494, 239), Color("#17243a"), EDGE)
 	ribbon(Rect2(720, 157, 494, 3), MINT)
 	label("TUTORIAL GESCHAFFT", Rect2(743, 177, 449, 51), 38, DISPLAY)
-	label("Die Pausenglocke gibt den Start frei.", Rect2(744, 238, 430, 30), 18, TEXT, DIM)
-	button("Zum Pausenhof", Rect2(743, 292, 271, 58), next_chapter, true).grab_focus()
+	var practice := selection_mode == "training"
+	var finish_text := "Du hast alle fünf Übungen geschafft." if practice else "Die Pausenglocke gibt den Start frei."
+	label(finish_text, Rect2(744, 238, 430, 30), 18, TEXT, DIM)
+	button("Zum Hauptmenü" if practice else "Zum Pausenhof", Rect2(743, 292, 271, 58),
+		show_home if practice else next_chapter, true).grab_focus()
 	button("Wiederholen", Rect2(1025, 292, 166, 58), restart_bout)
 
 
@@ -566,6 +607,19 @@ func show_result() -> void:
 		primary = "Revanche starten" if link.hosting else "Host entscheidet über Revanche"
 		next_action = start_network
 		enabled = link.hosting
+	elif bout.mode == "tournament":
+		subtitle = "Runde %d von %d · %s" % [tournament_round + 1, TOURNAMENT_ROUNDS, bout.stage["name"]]
+		primary = "Runde wiederholen"
+		if victor == 0 and tournament_round + 1 < TOURNAMENT_ROUNDS:
+			primary = "Nächste Runde"
+			next_action = next_tournament_round
+		elif victor == 0:
+			title = "TURNIER GEWONNEN"
+			tournament_wins += 1
+			save_settings()
+			subtitle = "%s hat alle vier Duelle gewonnen." % bout.fighters[0].profile["name"]
+			primary = "Neues Turnier"
+			next_action = begin_tournament
 	elif selection_mode == "campaign" and chapter > 0:
 		primary = "Erneut versuchen"
 		if victor == 0 and chapter < 3:

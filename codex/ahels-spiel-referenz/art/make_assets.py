@@ -200,6 +200,8 @@ ARENAS = [
     ('pausenhof', 'Pausenhof', '#5fe4bd', [(180, 535, 920, 58), (240, 418, 246, 26), (794, 418, 246, 26), (524, 326, 232, 26)], [360, 920]),
     ('computerraum', 'Computerraum', '#9bb4ff', [(145, 560, 990, 60), (335, 425, 242, 25), (710, 375, 242, 25)], [330, 935]),
     ('bibliothek', 'Bibliothek', '#ffbb78', [(160, 550, 960, 60), (205, 402, 252, 26), (822, 402, 252, 26)], [340, 923]),
+    ('werkstatt', 'Werkstatt', '#8ce6cc', [(136, 563, 1008, 62), (484, 448, 312, 28), (232, 335, 196, 26), (870, 335, 176, 26)], [340, 940]),
+    ('dachterrasse', 'Dachterrasse', '#ffc98f', [(270, 545, 740, 54), (125, 426, 212, 24), (950, 400, 203, 24), (551, 322, 178, 24)], [425, 855]),
 ]
 stage_path = ROOT / 'data' / 'arenas.json'
 if not stage_path.exists():
@@ -213,7 +215,8 @@ def backdrop(index):
     img = Image.new('RGB', (640, 360))
     d = ImageDraw.Draw(img)
     top, bottom = [('#1b2b48','#345571'),('#242044','#a36670'),
-                   ('#151e3c','#333d6a'),('#282035','#845650')][index]
+                   ('#151e3c','#333d6a'),('#282035','#845650'),
+                   ('#142d37','#46615a'),('#4f4369','#ef9470')][index]
     for y in range(360):
         d.line((0,y,640,y), fill=mix(top,bottom, y/359))
     def r(x, y, w, h, c):
@@ -318,7 +321,7 @@ def backdrop(index):
             r(0,y,640,1,'#342d56')
         for x in range(-105,765,70):
             d.line((320+(x-320)*.54,272,x,359),fill='#372e57')
-    else:
+    elif index == 3:
         # Bibliothek mit warmen Regalen und einem hohen Fenster in der Mitte.
         r(0,26,640,10,'#432d3f')
         r(0,182,640,100,'#4c3240')
@@ -356,6 +359,95 @@ def backdrop(index):
         d.polygon([(273,273),(367,273),(425,359),(215,359)], fill='#744c5b')
         d.line(((277,275),(229,358)),fill='#b77e69',width=2)
         d.line(((363,275),(411,358)),fill='#b77e69',width=2)
+    elif index == 4:
+        # Die Schulwerkstatt hinter den Plattformen, mit Werkzeugtafeln und Lötplätzen.
+        r(0, 32, 640, 9, '#101d2a')
+        r(0, 91, 640, 3, '#50675f')
+        r(0, 96, 640, 6, '#1d373d')
+        for pillar in (25, 210, 423, 608):
+            r(pillar, 37, 10, 249, '#1c353a')
+            r(pillar, 37, 2, 246, '#658076')
+        for lamp in (110, 318, 527):
+            r(lamp - 1, 36, 2, 20, '#80988b')
+            r(lamp - 40, 57, 81, 6, '#21343b')
+            r(lamp - 38, 63, 77, 3, '#e9ca94')
+        for frame_x in (54, 450):
+            r(frame_x, 113, 135, 101, '#193338')
+            r(frame_x + 4, 117, 127, 93, '#78908a')
+            for peg_y in range(123, 205, 9):
+                for peg_x in range(frame_x + 10, frame_x + 129, 9):
+                    r(peg_x, peg_y, 2, 2, '#4b625c')
+            for tool_index in range(6):
+                tool_x = frame_x + 15 + 18 * tool_index
+                tool_y = 134 + rng.randrange(20)
+                tool_length = rng.randrange(19, 34)
+                r(tool_x, tool_y + 4, 3, tool_length, '#d2ad74')
+                r(tool_x - 4, tool_y, 11, 7, '#dae0c1')
+                r(tool_x - 1, tool_y + tool_length - 3, 5, 9, '#304546')
+        r(239, 107, 163, 72, '#1c333d')
+        r(243, 111, 155, 64, '#659586')
+        for window_x in (244, 295, 348):
+            r(window_x, 111, 3, 64, '#375957')
+        for reflection in range(9):
+            start_x = 255 + reflection * 14
+            d.line((start_x, 114, start_x - 10, 164), fill='#81aa90', width=2)
+        r(243, 144, 155, 3, '#426660')
+        for bench_x in (41, 243, 442):
+            r(bench_x, 227, 155, 9, '#ab8d65')
+            r(bench_x, 235, 155, 5, '#685d4c')
+            for leg_x in (bench_x + 5, bench_x + 144):
+                r(leg_x, 240, 6, 49, '#243c40')
+            for drawer_x in range(bench_x + 18, bench_x + 105, 28):
+                r(drawer_x, 241, 23, 32, '#3b5350')
+                r(drawer_x + 7, 249, 10, 2, '#94a098')
+            r(bench_x + 16, 210, 26, 17, '#283b40')
+            r(bench_x + 18, 212, 22, 9, '#697b87')
+            r(bench_x + 20, 214, 9, 2, '#90ebc0')
+            r(bench_x + 70, 218, 34, 7, '#927558')
+        r(0, 288, 640, 72, '#25343a')
+        for tile_x in range(-112, 760, 45):
+            d.line((320 + (tile_x - 320) * .58, 288, tile_x, 359), fill='#45534d')
+        for tile_y in (295, 307, 325, 350):
+            r(0, tile_y, 640, 1, '#394a49')
+    else:
+        # Aussicht auf die Alpen im Abendlicht, mit Geländer, Lüftung und Dachaufbauten.
+        d.ellipse((437, 59, 529, 151), fill='#ffe0a4')
+        for cloud_y, cloud_x, cloud_width in ((64, 64, 125), (99, 214, 107), (118, 492, 123), (155, 23, 135)):
+            r(cloud_x, cloud_y, cloud_width, 5, '#b88697')
+            r(cloud_x + 15, cloud_y - 4, cloud_width - 33, 4, '#c7929d')
+        d.polygon([(0, 200), (53, 160), (81, 170), (145, 127), (212, 176),
+                   (249, 155), (288, 184), (351, 120), (401, 156), (447, 141),
+                   (497, 182), (555, 149), (640, 200), (640, 272), (0, 272)], fill='#8b718c')
+        d.polygon([(113, 149), (145, 127), (182, 153), (151, 145), (144, 153), (137, 144)],
+                  fill='#eed9ce')
+        d.polygon([(327, 143), (351, 120), (383, 143), (357, 135), (351, 142), (345, 135)],
+                  fill='#f5dfd1')
+        d.polygon([(0, 216), (74, 190), (142, 227), (229, 186), (287, 219),
+                   (423, 176), (487, 210), (554, 194), (640, 219), (640, 297), (0, 297)], fill='#635b7a')
+        for building_x in range(-2, 640, 23):
+            roof_y = rng.randrange(228, 263)
+            r(building_x, roof_y, 21, 286-roof_y, '#544d66')
+            for window_y in range(roof_y + 5, 280, 8):
+                r(building_x + 4, window_y, 3, 2, rng.choice(('#beb096', '#8f838a', '#625c77')))
+                r(building_x + 12, window_y, 3, 2, '#8f838a')
+        for rail_y in (232, 255, 277):
+            r(0, rail_y, 640, 3, '#483f53')
+            r(0, rail_y, 640, 1, '#b69697')
+        for rail_x in range(5, 640, 27):
+            r(rail_x, 232, 3, 55, '#59475a')
+        r(0, 287, 640, 73, '#443c52')
+        for seam_y in (294, 306, 325, 350):
+            r(0, seam_y, 640, 1, '#69566a')
+        for vent_x in (10, 571):
+            r(vent_x, 265, 49, 49, '#302f48')
+            r(vent_x + 3, 264, 43, 3, '#d79887')
+            r(vent_x + 4, 269, 41, 36, '#5d566e')
+            for grill_y in range(274, 303, 5):
+                r(vent_x + 9, grill_y, 31, 2, '#3d374e')
+        for aerial_x in (97, 538):
+            r(aerial_x, 199, 3, 87, '#41384b')
+            r(aerial_x - 10, 202, 24, 2, '#786173')
+            r(aerial_x - 7, 213, 17, 2, '#786173')
 
     pattern(0,0,638,358,mix(top,bottom,.52),1400)
     return img

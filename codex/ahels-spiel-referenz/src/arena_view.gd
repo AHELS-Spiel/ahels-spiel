@@ -10,6 +10,10 @@ const PAPER := Color("#f8f0df")
 const SOFT := Color("#d5d9df")
 const MINT := Color("#9ee9ce")
 const PEACH := Color("#ffad94")
+const PLATFORM_COLORS: Array[Color] = [
+	Color("#283a4f"), Color("#253746"), Color("#253048"), Color("#433145"),
+	Color("#283d3b"), Color("#473952"),
+]
 const FAKE_LINES: Array[String] = [
 	"Nach links! Also … mein links. Oder deins?",
 	"Springen? Ich glaube, man wird dabei kleiner.",
@@ -24,7 +28,7 @@ const REAL_LINES: Array[String] = [
 	"Geh nah an die Zielscheibe rechts und drück F.",
 	"Drück G für die Spezialfähigkeit deiner Figur.",
 	"Weiche mit Q aus. Am Boden lädt die Rolle wieder auf.",
-	"Geschafft! Jetzt kannst du in der ersten Arena antreten.",
+	"Geschafft! Du hast alle Übungen abgeschlossen.",
 ]
 const PAD_LINES: Array[String] = [
 	"Bewege dich mit dem linken Stick.",
@@ -32,13 +36,14 @@ const PAD_LINES: Array[String] = [
 	"Geh nah an die Zielscheibe rechts und drück X.",
 	"Drück Y für die Spezialfähigkeit deiner Figur.",
 	"Weiche mit B aus. Am Boden lädt die Rolle wieder auf.",
-	"Geschafft! Jetzt kannst du in der ersten Arena antreten.",
+	"Geschafft! Du hast alle Übungen abgeschlossen.",
 ]
 const LESSONS: Array[String] = ["Laufen", "Springen", "Treffen", "Spezial", "Ausweichen"]
 
 var catalog: ArenaCatalog
 var bout: ArenaBout
 var menu_scene := "home"
+var match_context := ""
 var clock := 0.0
 var smooth_remote := false
 var render_positions: Array[Vector2] = []
@@ -139,7 +144,7 @@ func draw_platform(surface: Rect2, accent: Color, stage: int) -> void:
 	var y := surface.position.y
 	var w := surface.size.x
 	var h := surface.size.y
-	var deep: Color = [Color("#283a4f"), Color("#253746"), Color("#253048"), Color("#433145")][stage]
+	var deep := PLATFORM_COLORS[stage] if stage < PLATFORM_COLORS.size() else accent.darkened(0.7)
 	draw_rect(Rect2(x, y + 4, w, h), NIGHT)
 	draw_rect(Rect2(x + 4, y + 10, w - 8, h - 11), deep)
 	draw_rect(Rect2(x, y, w, 5), accent)
@@ -284,6 +289,8 @@ func draw_hud() -> void:
 		var remaining := ceili(maxf(0.0, ArenaBout.MAX_SECONDS - bout.time))
 		sub = "%d:%02d" % [remaining / 60, remaining % 60]
 	draw_string(BOLD, Vector2(488, 78), sub, HORIZONTAL_ALIGNMENT_CENTER, 304, 16, SOFT)
+	if not match_context.is_empty():
+		draw_string(BOLD, Vector2(488, 97), match_context, HORIZONTAL_ALIGNMENT_CENTER, 304, 11, MINT)
 	for index in bout.fighters.size():
 		draw_status(index)
 	if bout.mode == "training":
