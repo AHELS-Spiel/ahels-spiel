@@ -13,6 +13,11 @@ const MINT := Color("#9ee9ce")
 const PEACH := Color("#ffad94")
 const SAVE_FILE := "user://arena.cfg"
 const TOURNAMENT_ROUNDS := 4
+const VERSUS_TIMES: Array[int] = [30, 60, 90, 150, 240, 0]
+const CPU_LEVELS: Array[String] = ["Einsteiger", "Normal", "Fortgeschritten", "Profi"]
+const PRACTICE_PERCENT: Array[int] = [0, 50, 100, 150]
+const MUSIC_DEFAULT := 55
+const EFFECTS_DEFAULT := 70
 const KEYS_ONE := [[KEY_A], [KEY_D], [KEY_W, KEY_SPACE], [KEY_F], [KEY_G], [KEY_Q, KEY_SHIFT], [KEY_S]]
 const KEYS_TWO := [[KEY_LEFT], [KEY_RIGHT], [KEY_UP], [KEY_J], [KEY_K], [KEY_L], [KEY_DOWN]]
 const GAMEPAD := [JOY_BUTTON_DPAD_LEFT, JOY_BUTTON_DPAD_RIGHT, JOY_BUTTON_A, JOY_BUTTON_X,
@@ -29,6 +34,11 @@ var selected := Vector2i(0, 5)
 var picking := 0
 var stage_pick := 1
 var versus_bot := true
+var versus_stocks := ArenaBout.DEFAULT_STOCKS
+var versus_time := ArenaBout.MAX_SECONDS
+var versus_difficulty := 1
+var practice_behavior := 0
+var practice_damage := 0
 var chapter := 0
 var tournament_round := 0
 var tournament_matchups: Array[Vector2i] = []
@@ -42,6 +52,13 @@ var music: AudioStreamPlayer
 var track := ""
 var effects: Dictionary = {}
 var muted := false
+var music_level := MUSIC_DEFAULT
+var effects_level := EFFECTS_DEFAULT
+var fullscreen := false
+var reduced_effects := false
+var settings_from_pause := false
+var controls_from_pause := false
+var fullscreen_button: Button
 var completed := false
 var lobby_status: Label
 var region: Label
@@ -70,6 +87,9 @@ func _ready() -> void:
 	link.connection_lost.connect(network_lost)
 	load_settings()
 	make_audio()
+	apply_audio()
+	apply_display()
+	view.reduced_effects = reduced_effects
 	show_home()
 
 
@@ -85,29 +105,43 @@ func _exit_tree() -> void:
 
 func load_settings() -> void:
 	var config := ConfigFile.new()
-	if config.load(SAVE_FILE) == OK:
-		muted = config.get_value("audio", "muted", false)
-		completed = config.get_value("campaign", "finished", false)
-		tournament_wins = config.get_value("tournament", "wins", 0)
+	if config.load(SAVE_FILE) != OK:
+		return
+	muted = config.get_value("audio", "muted", false) == true
+	completed = config.get_value("campaign", "finished", false) == true
+	tournament_wins = bounded_int(config.get_value("tournament", "wins", 0), 0, 0, 1000000)
+	music_level = bounded_int(config.get_value("audio", "music", MUSIC_DEFAULT), MUSIC_DEFAULT, 0, 100)
+	effects_level = bounded_int(config.get_value("audio", "effects", EFFECTS_DEFAULT), EFFECTS_DEFAULT, 0, 100)
+	fullscreen = config.get_value("display", "fullscreen", false) == true
+	reduced_effects = config.get_value("display", "reduced_effects", false) == true
+
+
+func bounded_int(value: Variant, fallback: int, minimum: int, maximum: int) -> int:
+	return clampi(value, minimum, maximum) if value is int else fallback
 
 
 func save_settings() -> void:
 	var config := ConfigFile.new()
+	config.load(SAVE_FILE)
 	config.set_value("audio", "muted", muted)
+	config.set_value("audio", "music", music_level)
+	config.set_value("audio", "effects", effects_level)
+	config.set_value("display", "fullscreen", fullscreen)
+	config.set_value("display", "reduced_effects", reduced_effects)
 	config.set_value("campaign", "finished", completed)
 	config.set_value("tournament", "wins", tournament_wins)
-	config.save(SAVE_FILE)
+	var result := config.save(SAVE_FILE)
+	if result != OK:
+		push_warning("Einstellungen konnten nicht gespeichert werden (%s)." % error_string(result))
 
 
 func make_audio() -> void:
 	music = AudioStreamPlayer.new()
-	music.volume_db = -19
 	add_child(music)
 	music.finished.connect(repeat_music)
 	for cue in ["select", "jump", "swing", "hit", "special", "out", "success", "boss"]:
 		var player := AudioStreamPlayer.new()
 		player.stream = load("res://assets/audio/%s.wav" % cue)
-		player.volume_db = -13
 		player.max_polyphony = 3
 		add_child(player)
 		effects[cue] = player
@@ -127,6 +161,12 @@ func repeat_music() -> void:
 		music.play()
 
 
+func apply_audio() -> void:
+	music.volume_db = -13.8 + linear_to_db(maxf(0.0001, music_level / 100.0))
+	for effect: AudioStreamPlayer in effects.values():
+		effect.volume_db = -9.9 + linear_to_db(maxf(0.0001, effects_level / 100.0))
+
+
 func toggle_audio() -> void:
 	muted = not muted
 	if muted:
@@ -136,7 +176,27 @@ func toggle_audio() -> void:
 	else:
 		repeat_music()
 	save_settings()
-	show_home()
+
+
+func apply_display() -> void:
+	if DisplayServer.get_name() != "headless":
+		get_window().min_size = Vector2i(640, 360)
+		get_window().mode = Window.MODE_FULLSCREEN if fullscreen else Window.MODE_WINDOWED
+
+
+func toggle_fullscreen() -> void:
+	if DisplayServer.get_name() != "headless":
+		fullscreen = get_window().mode != Window.MODE_FULLSCREEN
+	else:
+		fullscreen = not fullscreen
+	apply_display()
+	if is_instance_valid(fullscreen_button):
+		fullscreen_button.text = display_mode_text()
+	save_settings()
+
+
+func display_mode_text() -> String:
+	return "Vollbild (F11)" if fullscreen else "Fenster (F11)"
 
 
 func play_sound(cue: String) -> void:
@@ -209,18 +269,39 @@ func poll_controls(index: int) -> int:
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.physical_keycode == KEY_F11:
-			var full := DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN
-			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED if full else DisplayServer.WINDOW_MODE_FULLSCREEN)
+			toggle_fullscreen()
 			get_viewport().set_input_as_handled()
-		elif event.physical_keycode == KEY_ESCAPE:
+		elif event.physical_keycode == KEY_ESCAPE and not option_is_open():
 			go_back()
 			get_viewport().set_input_as_handled()
-	elif event is InputEventJoypadButton and event.pressed and event.button_index == JOY_BUTTON_START 			and screen == "bout":
-		go_back()
-		get_viewport().set_input_as_handled()
+		elif screen == "bout" and bout.mode == "practice" and not paused:
+			match event.physical_keycode:
+				KEY_R:
+					restart_bout()
+					get_viewport().set_input_as_handled()
+				KEY_F2:
+					cycle_practice_behavior()
+					get_viewport().set_input_as_handled()
+	elif event is InputEventJoypadButton and event.pressed:
+		if (event.button_index == JOY_BUTTON_START and screen == "bout") or (
+				event.button_index == JOY_BUTTON_B and not option_is_open()
+				and (screen != "bout" or paused or outcome_shown or heard_lesson)):
+			go_back()
+			get_viewport().set_input_as_handled()
+
+
+func option_is_open() -> bool:
+	var focused := get_viewport().gui_get_focus_owner() as OptionButton
+	return is_instance_valid(focused) and focused.get_popup().visible
 
 
 func go_back() -> void:
+	if controls_from_pause:
+		show_settings(true)
+		return
+	if settings_from_pause:
+		show_pause()
+		return
 	match screen:
 		"bout":
 			if outcome_shown or heard_lesson:
@@ -232,11 +313,16 @@ func go_back() -> void:
 		"network":
 			link.close()
 			show_selection("network")
-		"select", "controls":
+		"controls":
+			show_settings()
+		"rules":
+			show_selection("versus")
+		"select", "settings":
 			show_home()
 
 
 func make_ui() -> void:
+	fullscreen_button = null
 	if is_instance_valid(ui):
 		remove_child(ui)
 		ui.queue_free()
@@ -253,6 +339,8 @@ func set_menu(name: String) -> void:
 	view.menu_scene = name
 	screen = name
 	paused = false
+	settings_from_pause = false
+	controls_from_pause = false
 	make_ui()
 	change_music("lobby")
 
@@ -268,30 +356,100 @@ func show_home() -> void:
 	button("Turnier", Rect2(68, 441, 356, 46), func() -> void: show_selection("tournament"))
 	button("Versus", Rect2(68, 497, 356, 46), func() -> void: show_selection("versus"))
 	button("Netzwerk", Rect2(68, 553, 356, 46), func() -> void: show_selection("network"))
+	button("Training", Rect2(438, 497, 161, 46), func() -> void: show_selection("practice"))
 	if completed:
 		label("Kampagne abgeschlossen", Rect2(69, 604, 420, 23), 15, BOLD, MINT)
-	button("Steuerung", Rect2(68, 650, 150, 42), show_controls)
-	button("Ton aus" if not muted else "Ton an", Rect2(231, 650, 133, 42), toggle_audio)
-	button("Tutorial", Rect2(377, 650, 133, 42), func() -> void: show_selection("training"))
+	button("Einstellungen", Rect2(68, 650, 183, 42), show_settings)
+	button("Tutorial", Rect2(264, 650, 140, 42), func() -> void: show_selection("training"))
 	label("F11  Vollbild", Rect2(1006, 651, 202, 42), 16, BOLD, DIM, HORIZONTAL_ALIGNMENT_RIGHT)
 	play.grab_focus()
 
 
+func show_settings(from_pause: bool = false) -> void:
+	if from_pause:
+		make_ui()
+		ribbon(Rect2(0, 0, 1280, 720), Color(0.035, 0.055, 0.105, 0.95))
+	else:
+		set_menu("settings")
+	settings_from_pause = from_pause
+	controls_from_pause = false
+	header("Einstellungen", "Änderungen werden gespeichert", show_pause if from_pause else show_home)
+	style_panel(Rect2(60, 143, 563, 358), PANEL, EDGE)
+	style_panel(Rect2(651, 143, 568, 358), PANEL, EDGE)
+	label("Ton", Rect2(88, 164, 485, 48), 32, DISPLAY)
+	label("Anzeige", Rect2(679, 164, 490, 48), 32, DISPLAY)
+	var slider := audio_slider("Musik", music_level, 227, true)
+	audio_slider("Soundeffekte", effects_level, 317, false)
+	var mute_button := button(mute_text(), Rect2(90, 416, 491, 53), toggle_audio)
+	mute_button.pressed.connect(func() -> void: mute_button.text = mute_text())
+	fullscreen_button = button(display_mode_text(), Rect2(680, 233, 488, 52), toggle_fullscreen)
+	var visual := button(effects_text(), Rect2(680, 314, 488, 52), toggle_effects)
+	visual.pressed.connect(func() -> void: visual.text = effects_text())
+	label("Weniger Partikel und Blinkeffekte. Warnzeichen bleiben sichtbar.",
+		Rect2(681, 375, 482, 60), 16, TEXT, DIM, HORIZONTAL_ALIGNMENT_LEFT, null, true)
+	button("Steuerungsübersicht", Rect2(61, 537, 353, 54), show_controls)
+	slider.grab_focus()
+
+
+func audio_slider(caption: String, level: int, y: int, is_music: bool) -> HSlider:
+	label(caption, Rect2(90, y, 320, 31), 18, BOLD)
+	var value_label := label("%d%%" % level, Rect2(450, y, 130, 31), 17, BOLD, MINT, HORIZONTAL_ALIGNMENT_RIGHT)
+	var slider := HSlider.new()
+	slider.position = Vector2(92, y + 44)
+	slider.size = Vector2(487, 20)
+	slider.max_value = 100
+	slider.step = 1
+	slider.value = level
+	slider.add_theme_stylebox_override("slider", style(Color("#101b31"), EDGE, 4))
+	slider.add_theme_stylebox_override("grabber_area", style(MINT, MINT, 4))
+	slider.add_theme_stylebox_override("grabber_area_highlight", style(MINT, MINT, 4))
+	ui.add_child(slider)
+	slider.value_changed.connect(func(value: float) -> void:
+		if is_music:
+			music_level = roundi(value)
+		else:
+			effects_level = roundi(value)
+		value_label.text = "%d%%" % value
+		apply_audio()
+		save_settings())
+	return slider
+
+
+func mute_text() -> String:
+	return "Ton einschalten" if muted else "Ton stummschalten"
+
+
+func effects_text() -> String:
+	return "Reduzierte Effekte: An" if reduced_effects else "Reduzierte Effekte: Aus"
+
+
+func toggle_effects() -> void:
+	reduced_effects = not reduced_effects
+	view.reduced_effects = reduced_effects
+	save_settings()
+
+
 func show_controls() -> void:
-	set_menu("controls")
-	header("Steuerung", "Tastatur und Controller", show_home)
+	var from_pause := settings_from_pause
+	if from_pause:
+		make_ui()
+		ribbon(Rect2(0, 0, 1280, 720), Color(0.035, 0.055, 0.105, 0.95))
+	else:
+		set_menu("controls")
+	controls_from_pause = from_pause
+	var back := header("Steuerung", "Tastatur und Controller", show_settings.bind(from_pause))
 	style_panel(Rect2(61, 144, 1158, 427), PANEL, EDGE)
-	var columns := [89, 542, 789, 1027]
+	var columns := [89, 542, 789, 1002]
 	for col in 4:
 		label(["Aktion", "Spieler 1", "Spieler 2", "Controller"][col],
 			Rect2(columns[col], 164, 190, 38), 18, BOLD, MINT)
 	var keys := [
-		["Laufen", "A / D", "← / →", "Linker Stick"],
+		["Laufen", "A / D", "← / →", "Stick / Steuerkreuz"],
 		["Springen / Doppelsprung", "W / Leertaste", "↑", "A"],
 		["Angreifen", "F", "J", "X"],
 		["Spezialfähigkeit", "G", "K", "Y"],
 		["Ausweichen", "Q / Umschalt", "L", "B / RB"],
-		["Plattform fallen lassen", "S", "↓", "Stick nach unten"],
+		["Plattform fallen lassen", "S", "↓", "Stick / Steuerkreuz ↓"],
 	]
 	for row in keys.size():
 		ribbon(Rect2(86, 208 + row*54, 1108, 1), EDGE)
@@ -300,10 +458,11 @@ func show_controls() -> void:
 				18, BOLD if col == 0 else TEXT, PAPER)
 	label("Esc oder Start öffnet das Pausenmenü. F11 schaltet Vollbild um.",
 		Rect2(64, 594, 1142, 40), 18, TEXT, DIM)
+	back.grab_focus()
 
 
 func show_selection(kind: String) -> void:
-	if screen != "select" or selection_mode != kind:
+	if selection_mode != kind or screen == "home":
 		picking = 0
 	selection_mode = kind
 	set_menu("select")
@@ -312,6 +471,7 @@ func show_selection(kind: String) -> void:
 		"campaign": "Solo-Kampagne",
 		"tournament": "Turniersiege · %d" % tournament_wins if tournament_wins > 0 else "Turnier · Vier Duelle",
 		"training": "Tutorial mit Herrn Haidenthaler",
+		"practice": "Freies Training · Turnsaal",
 		"network": "Netzwerkduell",
 		"versus": "Lokal am selben PC",
 	}
@@ -320,6 +480,7 @@ func show_selection(kind: String) -> void:
 
 	var chosen := selected.x if picking == 0 else selected.y
 	var selected_card: Button
+	var two_fighters := kind == "versus" or kind == "practice"
 	for i in ArenaCatalog.STUDENTS:
 		var x := 59 + (i % 6) * 126
 		var y := 139 + (i / 6) * 117
@@ -333,10 +494,10 @@ func show_selection(kind: String) -> void:
 		label("%02d" % (i+1), Rect2(8, 5, 29, 17), 11, BOLD, ink, HORIZONTAL_ALIGNMENT_LEFT, card)
 		if i == chosen:
 			selected_card = card
-		if i == selected.y and kind == "versus":
+		if i == selected.y and two_fighters:
 			label("2", Rect2(83, 5, 23, 17), 12, BOLD, ink if i == chosen else PEACH,
 				HORIZONTAL_ALIGNMENT_RIGHT, card)
-		if i == selected.x and kind == "versus":
+		if i == selected.x and two_fighters:
 			label("1", Rect2(67, 5, 19, 17), 12, BOLD, ink if i == chosen else MINT,
 				HORIZONTAL_ALIGNMENT_RIGHT, card)
 
@@ -348,7 +509,7 @@ func show_selection(kind: String) -> void:
 	add_texture(catalog.portraits[chosen], Rect2(880, 162, 170, 188), ui)
 	fighter_texture(chosen, Rect2(1048, 194, 119, 158), 0)
 	var font_size := 42 if String(info["name"]).length() < 15 else 32
-	label(String(info["name"]), Rect2(853, 360, 345, 53), font_size, DISPLAY)
+	label(fighter_name(chosen), Rect2(853, 360, 345, 53), font_size, DISPLAY)
 	label(String(info["ability"]), Rect2(856, 417, 338, 27), 18, BOLD, accent)
 	label(String(info["description"]), Rect2(856, 446, 333, 52), 15, TEXT, DIM,
 		HORIZONTAL_ALIGNMENT_LEFT, null, true)
@@ -365,8 +526,15 @@ func show_selection(kind: String) -> void:
 		button("KI-Figur" if versus_bot else "Spieler 2", Rect2(189, 620, 120, 51),
 			pick_player.bind(1), picking == 1)
 		button("Modus: CPU" if versus_bot else "Modus: 2 am PC", Rect2(321, 620, 166, 51), toggle_versus)
-		button("Arena: " + String(catalog.arenas[stage_pick]["name"]) + "  ›", Rect2(500, 620, 302, 51), next_arena)
+		button(String(catalog.arenas[stage_pick]["name"]) + "  ›", Rect2(499, 620, 177, 51), next_arena)
+		button("Regeln", Rect2(687, 620, 115, 51), show_versus_rules)
 		button("Runde starten", Rect2(829, 618, 392, 53), start_versus, true)
+	elif kind == "practice":
+		button("Spieler 1", Rect2(59, 620, 146, 51), pick_player.bind(0), picking == 0)
+		button("Übungsgegner", Rect2(218, 620, 151, 51), pick_player.bind(1), picking == 1)
+		option_picker("Gegnerverhalten", ArenaBout.PRACTICE_BEHAVIORS, Rect2(389, 620, 200, 51),
+			practice_behavior, set_practice_behavior)
+		button("Training starten", Rect2(829, 618, 392, 53), start_practice, true)
 	elif kind == "network":
 		button("Zur Lobby", Rect2(829, 618, 392, 53), show_lobby, true)
 	elif kind == "tournament":
@@ -435,9 +603,51 @@ func next_tournament_round() -> void:
 	begin_bout(matchup.x, selected.x, matchup.y, "tournament", tournament_round)
 
 
+func show_versus_rules() -> void:
+	set_menu("rules")
+	header("Versus-Regeln", "Lokales Duell", show_selection.bind("versus"))
+	style_panel(Rect2(59, 145, 1161, 393), PANEL, EDGE)
+	label("Versuche pro Figur", Rect2(91, 162, 470, 49), 25, BOLD)
+	var stocks := option_picker("Versuche", ["1", "2", "3", "4", "5"], Rect2(734, 166, 442, 50),
+		versus_stocks - 1, func(index: int) -> void: versus_stocks = index + 1)
+	label("Zeitlimit", Rect2(91, 242, 470, 49), 25, BOLD)
+	option_picker("Zeitlimit", ["0:30", "1:00", "1:30", "2:30", "4:00", "Ohne Zeitlimit"],
+		Rect2(734, 246, 442, 50), VERSUS_TIMES.find(int(versus_time)),
+		func(index: int) -> void: versus_time = float(VERSUS_TIMES[index]))
+	label("CPU-Schwierigkeit", Rect2(91, 321, 470, 49), 25, BOLD)
+	var cpu := option_picker("CPU-Schwierigkeit", CPU_LEVELS, Rect2(734, 325, 442, 50),
+		versus_difficulty, func(index: int) -> void: versus_difficulty = index)
+	cpu.disabled = not versus_bot
+	label("Höhere Stufen reagieren schneller und nutzen häufiger Spezialfähigkeiten." if versus_bot
+		else "Im Duell zu zweit steuern beide Personen selbst.",
+		Rect2(91, 392, 1074, 41), 17, TEXT, DIM)
+	label("Bei Zeitablauf entscheiden übrige Versuche, dann der niedrigere Rückstoßwert.",
+		Rect2(91, 464, 1074, 40), 17, TEXT, DIM)
+	button("Übernehmen", Rect2(872, 580, 348, 56), show_selection.bind("versus"), true)
+	stocks.grab_focus()
+
+
 func start_versus() -> void:
 	chapter = 0
-	begin_bout(stage_pick, selected.x, selected.y, "solo" if versus_bot else "local")
+	begin_bout(stage_pick, selected.x, selected.y, "solo" if versus_bot else "local",
+		versus_difficulty, versus_stocks, versus_time)
+
+
+func set_practice_behavior(index: int) -> void:
+	practice_behavior = index
+	if bout != null and bout.mode == "practice":
+		bout.practice_behavior = index
+		bout.bot_clock = 0.0
+		bout.bot_direction = 0
+
+
+func cycle_practice_behavior() -> void:
+	set_practice_behavior((practice_behavior + 1) % ArenaBout.PRACTICE_BEHAVIORS.size())
+
+
+func start_practice() -> void:
+	chapter = 0
+	begin_bout(0, selected.x, selected.y, "practice", 1, ArenaBout.DEFAULT_STOCKS, 0.0)
 
 
 func show_lobby() -> void:
@@ -535,8 +745,13 @@ func receive_state(state: Dictionary) -> void:
 		bout.apply_snapshot(state)
 
 
-func begin_bout(arena: int, one: int, two: int, mode: String, difficulty: int = 1) -> void:
-	bout = ArenaBout.new(catalog, arena, one, two, mode, difficulty)
+func begin_bout(arena: int, one: int, two: int, mode: String, difficulty: int = 1,
+		stocks: int = ArenaBout.DEFAULT_STOCKS, seconds: float = ArenaBout.MAX_SECONDS) -> void:
+	bout = ArenaBout.new(catalog, arena, one, two, mode, difficulty, stocks, seconds)
+	if mode == "practice":
+		bout.practice_behavior = practice_behavior
+		bout.practice_damage = practice_damage
+		bout.reset_position(1, false)
 	view.bout = bout
 	view.match_context = "TURNIER · RUNDE %d / %d" % [tournament_round + 1, TOURNAMENT_ROUNDS] if mode == "tournament" else ""
 	view.smooth_remote = mode == "network" and not link.hosting
@@ -563,8 +778,13 @@ func show_tutorial_finish() -> void:
 
 
 func show_pause() -> void:
+	settings_from_pause = false
+	controls_from_pause = false
 	paused = true
 	make_ui()
+	if bout.mode == "practice":
+		show_practice_pause()
+		return
 	overlay()
 	var online := bout.mode == "network"
 	label("PAUSE", Rect2(384, 199, 513, 86), 64, DISPLAY, PAPER, HORIZONTAL_ALIGNMENT_CENTER)
@@ -574,10 +794,31 @@ func show_pause() -> void:
 	button("Weiter", Rect2(439, 330, 404, 54), resume_bout, true).grab_focus()
 	if not online:
 		button("Neu starten", Rect2(439, 397, 404, 50), restart_bout)
-	button("Zum Hauptmenü", Rect2(439, 460, 404, 50), show_home)
+	button("Einstellungen", Rect2(439, 456 if not online else 397, 197, 50), show_settings.bind(true))
+	button("Zum Hauptmenü", Rect2(646, 456 if not online else 397, 197, 50), show_home)
+
+
+func show_practice_pause() -> void:
+	ribbon(Rect2(0, 0, 1280, 720), Color(0.045, 0.07, 0.13, 0.80))
+	style_panel(Rect2(345, 115, 590, 510), PANEL, EDGE)
+	ribbon(Rect2(345, 115, 590, 4), MINT)
+	label("TRAINING", Rect2(379, 133, 522, 75), 54, DISPLAY, PAPER, HORIZONTAL_ALIGNMENT_CENTER)
+	label("Gegner", Rect2(377, 246, 205, 46), 18, BOLD)
+	option_picker("Gegnerverhalten", ArenaBout.PRACTICE_BEHAVIORS, Rect2(597, 246, 303, 46),
+		practice_behavior, set_practice_behavior)
+	label("Zielwert beim Reset", Rect2(377, 300, 207, 46), 18, BOLD)
+	option_picker("Start-Rückstoß", ["0 %", "50 %", "100 %", "150 %"], Rect2(597, 300, 303, 46),
+		PRACTICE_PERCENT.find(practice_damage), func(index: int) -> void: practice_damage = PRACTICE_PERCENT[index])
+	label("Der Zielwert gilt ab dem nächsten Reset.", Rect2(377, 352, 515, 30), 15, TEXT, DIM)
+	button("Weiter", Rect2(377, 401, 253, 54), resume_bout, true).grab_focus()
+	button("Zurücksetzen", Rect2(646, 401, 254, 54), restart_bout)
+	button("Figurenwahl", Rect2(377, 474, 253, 52), show_selection.bind("practice"))
+	button("Einstellungen", Rect2(646, 474, 254, 52), show_settings.bind(true))
+	button("Zum Hauptmenü", Rect2(377, 546, 523, 48), show_home)
 
 
 func resume_bout() -> void:
+	settings_from_pause = false
 	paused = false
 	make_ui()
 
@@ -585,7 +826,7 @@ func resume_bout() -> void:
 func restart_bout() -> void:
 	var one := bout.fighters[0].id
 	var two := bout.fighters[1].id if bout.fighters.size() > 1 else 0
-	begin_bout(bout.stage_index, one, two, bout.mode, bout.difficulty)
+	begin_bout(bout.stage_index, one, two, bout.mode, bout.difficulty, bout.max_stocks, bout.time_limit)
 
 
 func show_result() -> void:
@@ -596,10 +837,7 @@ func show_result() -> void:
 	var victor := bout.winner
 	if victor >= 0:
 		var winner_fighter := bout.fighters[victor]
-		var winner_name := String(winner_fighter.profile["name"])
-		if winner_fighter.id in [5, 7, 15, 16]:
-			winner_name += " · %02d" % (winner_fighter.id + 1)
-		title = "%s GEWINNT" % winner_name.to_upper()
+		title = "%s GEWINNT" % fighter_name(winner_fighter.id).to_upper()
 	var primary := "Noch eine Runde"
 	var next_action := restart_bout
 	var enabled := true
@@ -650,11 +888,12 @@ func overlay() -> void:
 	ribbon(Rect2(358, 172, 564, 4), MINT)
 
 
-func header(title: String, detail: String, back: Callable) -> void:
-	button("‹  Zurück", Rect2(57, 48, 118, 43), back)
+func header(title: String, detail: String, back: Callable) -> Button:
+	var back_button := button("‹  Zurück", Rect2(57, 48, 118, 43), back)
 	label(title, Rect2(196, 34, 600, 68), 52, DISPLAY)
 	label(detail, Rect2(861, 49, 359, 42), 18, BOLD, DIM, HORIZONTAL_ALIGNMENT_RIGHT)
 	ribbon(Rect2(58, 111, 1162, 2), EDGE)
+	return back_button
 
 
 func label(value: String, area: Rect2, size: int, font: Font = TEXT, color: Color = PAPER,
@@ -702,6 +941,31 @@ func button(value: String, area: Rect2, action: Callable, primary: bool = false)
 		action.call())
 	ui.add_child(item)
 	return item
+
+
+func option_picker(caption: String, values: Array, area: Rect2, selected_index: int,
+		action: Callable) -> OptionButton:
+	var item := OptionButton.new()
+	item.position = area.position
+	item.size = area.size
+	item.tooltip_text = caption
+	item.accessibility_name = caption
+	item.add_theme_font_override("font", BOLD)
+	item.add_theme_font_size_override("font_size", 17)
+	item.add_theme_stylebox_override("normal", style(Color("#23354f"), EDGE, 7))
+	item.add_theme_stylebox_override("hover", style(Color("#324b67"), MINT, 7))
+	item.add_theme_stylebox_override("focus", style(Color.TRANSPARENT, Color("#ffe3ae"), 7))
+	for value: String in values:
+		item.add_item(value)
+	item.select(selected_index)
+	item.item_selected.connect(action)
+	ui.add_child(item)
+	return item
+
+
+func fighter_name(index: int) -> String:
+	var given_name := String(catalog.fighters[index]["name"])
+	return "%s · %02d" % [given_name, index + 1] if index in [5, 7, 15, 16] else given_name
 
 
 func field(area: Rect2, value: String, placeholder: String) -> LineEdit:

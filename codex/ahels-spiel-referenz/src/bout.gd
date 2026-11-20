@@ -13,6 +13,8 @@ const ACTIONS := JUMP | FIGHT_ACTIONS | DOWN
 const ONGOING := -2
 const DRAW := -1
 const MAX_SECONDS := 150.0
+const DEFAULT_STOCKS := 3
+const PRACTICE_BEHAVIORS: Array[String] = ["Still", "Springt", "CPU"]
 const GRAVITY := 1140.0
 const NORMAL_LOCK := 0.25
 const STUDENT_CAP := 300.0
@@ -76,6 +78,10 @@ var fighters: Array[Fighter] = []
 var shots: Array[Shot] = []
 var flashes: Array[Dictionary] = []
 var time := 0.0
+var time_limit: float
+var max_stocks: int
+var practice_behavior := 0
+var practice_damage := 0
 var starts_in := 2.15
 var winner := ONGOING
 var tutorial_step := 0
@@ -95,17 +101,20 @@ var rng := RandomNumberGenerator.new()
 
 
 func _init(catalog: ArenaCatalog, arena: int, one: int, two: int, game_mode: String,
-		bot_level: int = 1) -> void:
+		bot_level: int = 1, stocks: int = DEFAULT_STOCKS, seconds: float = MAX_SECONDS) -> void:
 	stage_index = arena
+	max_stocks = clampi(stocks, 1, 5)
+	time_limit = maxf(seconds, 0.0)
 	mode = game_mode
 	stage = catalog.arenas[arena]
 	difficulty = bot_level
 	fighters.append(Fighter.new(one, catalog.fighters[one]))
 	if mode != "training":
 		fighters.append(Fighter.new(two, catalog.fighters[two]))
-	else:
+	if mode == "training" or mode == "practice":
 		starts_in = 0.0
 	for i in fighters.size():
+		fighters[i].stocks = max_stocks
 		reset_position(i, false)
 	if mode == "training":
 		lesson_origin = fighters[0].p.x
@@ -120,7 +129,7 @@ func reset_position(index: int, show_flash: bool = true) -> void:
 	fighter.p = Vector2(float(stage["spawns"][index]), ground.position.y - (115.0 if show_flash else 0.0))
 	fighter.v = Vector2.ZERO
 	fighter.facing = 1 if index == 0 else -1
-	fighter.balance = 0.0
+	fighter.balance = float(practice_damage) if mode == "practice" and index == 1 else 0.0
 	fighter.stun = 0.0
 	fighter.dodge_time = 0.0
 	fighter.shield = 0.0
@@ -158,6 +167,16 @@ func tick(delta: float, first: int, first_edge: int, second: int, second_edge: i
 		var bot := bot_input(delta)
 		second = bot_direction
 		second_edge = bot
+	elif mode == "practice":
+		match practice_behavior:
+			1:
+				bot_clock = maxf(0.0, bot_clock - delta)
+				if fighters[1].standing and bot_clock == 0.0:
+					second_edge = JUMP
+					bot_clock = 1.35
+			2:
+				second_edge = bot_input(delta)
+				second = bot_direction
 	update_fighter(0, delta, first, first_edge)
 	if fighters.size() == 2:
 		update_fighter(1, delta, second, second_edge)
@@ -474,7 +493,8 @@ func bot_input(delta: float) -> int:
 
 func ring_out(index: int) -> void:
 	var fighter := fighters[index]
-	fighter.stocks -= 1
+	if mode != "practice":
+		fighter.stocks -= 1
 	sound("out")
 	flash(Vector2(clampf(fighter.p.x, 22.0, 1258.0), clampf(fighter.p.y, 135.0, 630.0)),
 		fighter.profile["accent"], "out")
@@ -483,6 +503,8 @@ func ring_out(index: int) -> void:
 
 
 func check_end() -> void:
+	if mode == "practice":
+		return
 	if mode == "boss" and fighters[1].balance >= 131.0:
 		fighters[1].stocks = 0
 		flash(fighters[1].p - Vector2(0, 42), Color("#ffcf9b"), "out")
@@ -491,7 +513,7 @@ func check_end() -> void:
 			winner = DRAW
 		else:
 			winner = 0 if fighters[0].stocks > 0 else 1
-	elif time >= MAX_SECONDS:
+	elif time_limit > 0.0 and time >= time_limit:
 		var one := fighters[0]
 		var two := fighters[1]
 		if mode == "boss":
