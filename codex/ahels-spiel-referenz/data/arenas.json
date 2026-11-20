@@ -20,7 +20,8 @@
     "spawns": [
       315,
       925
-    ]
+    ],
+    "description": "Durchgehender Boden zum Üben."
   },
   {
     "id": "pausenhof",
@@ -55,7 +56,8 @@
     "spawns": [
       360,
       920
-    ]
+    ],
+    "description": "Breiter Boden, zwei Seiten und eine hohe Mitte."
   },
   {
     "id": "computerraum",
@@ -84,7 +86,8 @@
     "spawns": [
       330,
       935
-    ]
+    ],
+    "description": "Zwei Plattformen mit versetzter Höhe."
   },
   {
     "id": "bibliothek",
@@ -113,7 +116,8 @@
     "spawns": [
       340,
       923
-    ]
+    ],
+    "description": "Breiter Boden und zwei offene Seitenplattformen."
   },
   {
     "id": "werkstatt",
@@ -148,7 +152,8 @@
     "spawns": [
       340,
       940
-    ]
+    ],
+    "description": "Tiefe Mitte und hohe Seitenplattformen."
   },
   {
     "id": "dachterrasse",
@@ -183,6 +188,79 @@
     "spawns": [
       425,
       855
-    ]
+    ],
+    "description": "Schmaler Boden, Seitenkanten und hohe Mitte."
+  },
+  {
+    "id": "aula",
+    "name": "Aula",
+    "color": "#ffcc97",
+    "platforms": [
+      [
+        139,
+        559,
+        1002,
+        58
+      ],
+      [
+        201,
+        444,
+        224,
+        24
+      ],
+      [
+        855,
+        444,
+        224,
+        24
+      ],
+      [
+        509,
+        351,
+        262,
+        24
+      ]
+    ],
+    "spawns": [
+      323,
+      957
+    ],
+    "description": "Breite Bühne mit niedrigen Seiten und hoher Mitte."
+  },
+  {
+    "id": "physiksaal",
+    "name": "Physiksaal",
+    "color": "#81e4ed",
+    "platforms": [
+      [
+        185,
+        569,
+        910,
+        61
+      ],
+      [
+        212,
+        455,
+        216,
+        23
+      ],
+      [
+        727,
+        411,
+        294,
+        23
+      ],
+      [
+        462,
+        320,
+        185,
+        24
+      ]
+    ],
+    "spawns": [
+      337,
+      943
+    ],
+    "description": "Versetzte Labortische und ein schmales oberes Podest."
   }
 ]

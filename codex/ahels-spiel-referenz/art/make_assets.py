@@ -195,20 +195,7 @@ roster_path = ROOT / 'data' / 'fighters.json'
 if not roster_path.exists():
     roster_path.write_text(json.dumps(roster, ensure_ascii=False, indent=2)+'\n')
 
-ARENAS = [
-    ('turnsaal', 'Turnsaal', '#436888', [(-1, 560, 1282, 44), (377, 432, 210, 22)], [315, 925]),
-    ('pausenhof', 'Pausenhof', '#5fe4bd', [(180, 535, 920, 58), (240, 418, 246, 26), (794, 418, 246, 26), (524, 326, 232, 26)], [360, 920]),
-    ('computerraum', 'Computerraum', '#9bb4ff', [(145, 560, 990, 60), (335, 425, 242, 25), (710, 375, 242, 25)], [330, 935]),
-    ('bibliothek', 'Bibliothek', '#ffbb78', [(160, 550, 960, 60), (205, 402, 252, 26), (822, 402, 252, 26)], [340, 923]),
-    ('werkstatt', 'Werkstatt', '#8ce6cc', [(136, 563, 1008, 62), (484, 448, 312, 28), (232, 335, 196, 26), (870, 335, 176, 26)], [340, 940]),
-    ('dachterrasse', 'Dachterrasse', '#ffc98f', [(270, 545, 740, 54), (125, 426, 212, 24), (950, 400, 203, 24), (551, 322, 178, 24)], [425, 855]),
-]
-stage_path = ROOT / 'data' / 'arenas.json'
-if not stage_path.exists():
-    stage_path.write_text(json.dumps([
-        dict(id=ident, name=name, color=color, platforms=platforms, spawns=spawns)
-        for ident, name, color, platforms, spawns in ARENAS
-    ], ensure_ascii=False, indent=2)+'\n')
+ARENAS = json.loads((ROOT / 'data' / 'arenas.json').read_text(encoding='utf-8'))
 
 def backdrop(index):
     rng = Random(51+index)
@@ -216,7 +203,8 @@ def backdrop(index):
     d = ImageDraw.Draw(img)
     top, bottom = [('#1b2b48','#345571'),('#242044','#a36670'),
                    ('#151e3c','#333d6a'),('#282035','#845650'),
-                   ('#142d37','#46615a'),('#4f4369','#ef9470')][index]
+                   ('#142d37','#46615a'),('#4f4369','#ef9470'),
+                   ('#211735','#6d375a'),('#192f4e','#5a7785')][index]
     for y in range(360):
         d.line((0,y,640,y), fill=mix(top,bottom, y/359))
     def r(x, y, w, h, c):
@@ -409,7 +397,7 @@ def backdrop(index):
             d.line((320 + (tile_x - 320) * .58, 288, tile_x, 359), fill='#45534d')
         for tile_y in (295, 307, 325, 350):
             r(0, tile_y, 640, 1, '#394a49')
-    else:
+    elif index == 5:
         # Aussicht auf die Alpen im Abendlicht, mit Geländer, Lüftung und Dachaufbauten.
         d.ellipse((437, 59, 529, 151), fill='#ffe0a4')
         for cloud_y, cloud_x, cloud_width in ((64, 64, 125), (99, 214, 107), (118, 492, 123), (155, 23, 135)):
@@ -449,11 +437,89 @@ def backdrop(index):
             r(aerial_x - 10, 202, 24, 2, '#786173')
             r(aerial_x - 7, 213, 17, 2, '#786173')
 
+    elif index == 6:
+        # Vorderbühne mit Seitenvorhängen, Lichttraverse und Sitzreihen.
+        r(0, 30, 640, 46, '#2d203d')
+        r(56, 58, 528, 208, '#634161')
+        r(63, 68, 514, 203, '#322544')
+        for x in range(82, 560, 34):
+            r(x, 75, 1, 187, '#493350')
+        for x in (137, 275, 365, 503):
+            destination = 320 + int((x - 320) * .64)
+            d.polygon([(x - 7, 78), (x + 7, 78), (destination + 46, 266),
+                       (destination - 46, 266)], fill='#654358')
+            d.polygon([(x - 3, 78), (x + 3, 78), (destination + 22, 266),
+                       (destination - 22, 266)], fill='#7d505d')
+            r(x - 13, 67, 26, 11, '#201c36')
+            r(x - 9, 77, 18, 3, '#fed89b')
+        r(49, 245, 542, 29, '#84565a')
+        for x in range(56, 582, 32):
+            d.line((x, 248, x + (x - 320) // 14, 273), fill='#ad766c')
+        r(48, 273, 544, 6, '#d18d6c')
+        for offset in range(0, 82, 12):
+            color = ('#542640', '#773449', '#8c3d55')[offset // 12 % 3]
+            r(offset, 50, 12, 237 - offset // 2, color)
+            r(628 - offset, 50, 12, 237 - offset // 2, color)
+        for x in range(0, 640, 47):
+            d.arc((x - 6, 26, x + 57, 87), 0, 180, '#c98a63', width=2)
+        r(0, 292, 640, 68, '#251d35')
+        for row, y in enumerate((292, 316, 345)):
+            for x in range(-25 + row * 10, 640, 34 + row * 3):
+                if abs(x - 320) < 24 + row * 9:
+                    continue
+                color = rng.choice(('#61384a', '#6d4357', '#51364e'))
+                d.rounded_rectangle((x, y, x + 29 + row * 2, y + 17),
+                                    radius=4, fill=color)
+                r(x + 3, y + 2, 21 + row, 1, '#996476')
+        for step_y in (302, 323, 348):
+            r(306, step_y, 28, 2, '#b58660')
+    elif index == 7:
+        # Physiksaal mit Laborfenstern, Messgeräten und Kreideskizzen.
+        r(0, 40, 640, 7, '#304a60')
+        for x in (28, 185, 491):
+            width = 115 if x == 491 else 126
+            r(x, 64, width, 127, '#254459')
+            r(x + 5, 69, width - 10, 114, '#80a9bc')
+            d.polygon([(x + 7, 170), (x + 7, 120), (x + width - 5, 80),
+                       (x + width - 5, 104)], fill='#97b7c7')
+            r(x + width // 2, 70, 3, 111, '#3b6980')
+            r(x + 5, 123, width - 10, 4, '#3b6980')
+            r(x - 4, 183, width + 8, 7, '#508098')
+            d.polygon([(x + 10, 190), (x + width - 5, 190), (x + width + 66, 285),
+                       (x + 36, 285)], fill='#597d90')
+        r(321, 92, 159, 97, '#234553')
+        r(326, 97, 149, 87, '#2b5461')
+        d.line([(340, 146), (356, 146), (362, 122), (370, 164), (379, 132),
+                (386, 146), (406, 146)], fill='#9bd4cb', width=2)
+        d.ellipse((415, 117, 455, 157), outline='#9bd4cb', width=1)
+        d.line((435, 108, 435, 166), fill='#9bd4cb')
+        d.line((409, 137, 462, 137), fill='#9bd4cb')
+        r(350, 172, 27, 2, '#e8ac82')
+        for x in (44, 246, 457):
+            r(x, 229, 146, 9, '#638e9f')
+            r(x + 2, 237, 142, 6, '#385463')
+            for leg in (x + 9, x + 128):
+                r(leg, 243, 7, 41, '#2f4b5b')
+            r(x + 12, 204, 37, 23, '#35495c')
+            r(x + 15, 208, 30, 11, '#061f2f')
+            d.line([(x + 17, 215), (x + 23, 215), (x + 28, 210),
+                    (x + 33, 217), (x + 43, 217)], fill='#9cf1dc')
+            r(x + 61, 218, 44, 8, '#b48261')
+            r(x + 89, 195, 2, 24, '#b3cfca')
+            d.ellipse((x + 80, 192, x + 100, 206), fill='#deb382')
+            r(x + 115, 205, 9, 21, '#4f93a2')
+            r(x + 117, 213, 5, 11, '#a2dfd5')
+        r(0, 286, 640, 74, '#344e60')
+        for x in range(-114, 778, 47):
+            d.line((320 + (x - 320) * .61, 286, x, 359), fill='#4a6976')
+        for y in (295, 308, 330, 353):
+            r(0, y, 640, 1, '#597583')
+
     pattern(0,0,638,358,mix(top,bottom,.52),1400)
     return img
 
-for i, (ident, *_) in enumerate(ARENAS):
-    backdrop(i).save(ART / f'{ident}.png', optimize=True)
+for i, arena in enumerate(ARENAS):
+    backdrop(i).save(ART / f"{arena['id']}.png", optimize=True)
 
 icon = Image.new('RGBA',(48,48))
 di = ImageDraw.Draw(icon)

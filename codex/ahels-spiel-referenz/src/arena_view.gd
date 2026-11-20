@@ -12,7 +12,7 @@ const MINT := Color("#9ee9ce")
 const PEACH := Color("#ffad94")
 const PLATFORM_COLORS: Array[Color] = [
 	Color("#283a4f"), Color("#253746"), Color("#253048"), Color("#433145"),
-	Color("#283d3b"), Color("#473952"),
+	Color("#283d3b"), Color("#473952"), Color("#45273f"), Color("#263d4f"),
 ]
 const FAKE_LINES: Array[String] = [
 	"Nach links! Also … mein links. Oder deins?",
@@ -190,9 +190,15 @@ func draw_fighter(f: ArenaBout.Fighter, position: Vector2, index: int) -> void:
 		draw_arc(p - Vector2(0, 50), 48, 0, TAU, 30, Color(accent, 0.75), 2)
 	catalog.draw_sprite(self, f.id, frame, foot, f.facing, tint)
 	if f.id == ArenaCatalog.BOSS and bout.boss_warning > 0.0:
-		var warning := 1.0 - bout.boss_warning / 0.9
-		draw_arc(p - Vector2(0, 2), 37 + 90 * warning, PI, TAU, 20, PEACH, 3)
-		draw_string(DISPLAY, p + Vector2(-6, -138), "!", HORIZONTAL_ALIGNMENT_LEFT, -1, 30, PEACH)
+		var warning := 1.0 - bout.boss_warning / 0.95
+		var color := Color("#93ecff") if bout.boss_chalk else PEACH
+		if bout.boss_chalk:
+			var origin := p + Vector2(0, -130)
+			for side in [-1, 1]:
+				draw_dashed_line(origin, origin + Vector2(410 * side, 130), color, 2.0, 12.0)
+		else:
+			draw_arc(p - Vector2(0, 2), 37 + 90 * warning, PI, TAU, 20, color, 3)
+		draw_string(DISPLAY, p + Vector2(-6, -138), "!", HORIZONTAL_ALIGNMENT_LEFT, -1, 30, color)
 	elif bout.mode != "training":
 		draw_colored_polygon(PackedVector2Array([p + Vector2(-6, -116),
 			p + Vector2(6, -116), p + Vector2(0, -109)]), player_color)
@@ -331,7 +337,8 @@ func draw_status(index: int) -> void:
 			var s := clampf(1.0 - f.balance / 131.0, 0, 1)
 			draw_rect(Rect2(x+73, 53, 172, 8), Color("#38425a"))
 			draw_rect(Rect2(x+73, 53, 172*s, 8), color)
-			var hint := "ÖFFNUNG" if bout.boss_recovery > 0 else "REGALWELLE!" if bout.boss_warning > 0 else "PHASE %d" % bout.boss_phase
+			var warning_name := "KREIDEBOGEN!" if bout.boss_chalk else "REGALWELLE!"
+			var hint := "ÖFFNUNG" if bout.boss_recovery > 0 else warning_name if bout.boss_warning > 0 else "PHASE %d" % bout.boss_phase
 			draw_string(BOLD, Vector2(x+73, 81), hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, color)
 		else:
 			if bout.mode == "practice":
