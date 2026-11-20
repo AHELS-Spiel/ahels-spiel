@@ -6,11 +6,12 @@ signal match_started(stage_index: int, one: int, two: int)
 signal state_received(state: Dictionary)
 signal connection_lost(message: String)
 
-const VERSION := 2
+const VERSION := 3
 const DEFAULT_PORT := 24738
 const WAIT_SECONDS := 12.0
 
 var peer: ENetMultiplayerPeer
+var arena_count := 0
 var hosting := false
 var local_fighter := 0
 var guest := 0
@@ -158,7 +159,7 @@ func can_start() -> bool:
 
 
 func start_round(stage_index: int) -> void:
-	if not can_start():
+	if not can_start() or not valid_arena(stage_index):
 		return
 	round_id += 1
 	remote_edges = 0
@@ -170,12 +171,16 @@ func start_round(stage_index: int) -> void:
 
 @rpc("authority", "call_remote", "reliable")
 func open_round(serial: int, stage_index: int, one: int, two: int) -> void:
-	if hosting or serial <= round_id or stage_index < 1 or stage_index > 3:
+	if hosting or serial <= round_id or not valid_arena(stage_index):
 		return
 	if one < 0 or one >= ArenaCatalog.STUDENTS or two < 0 or two >= ArenaCatalog.STUDENTS:
 		return
 	round_id = serial
 	match_started.emit(stage_index, one, two)
+
+
+func valid_arena(stage_index: int) -> bool:
+	return stage_index >= 1 and stage_index < arena_count
 
 
 func send_controls(held: int, pressed: int) -> void:

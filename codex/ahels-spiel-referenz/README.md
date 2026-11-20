@@ -11,8 +11,12 @@ Für die Entwicklung den Ordner in **Godot 4.6.3** über `project.godot` importi
 ## Spielmodi
 
 - **Solo-Kampagne.** Wählt eine Figur. Herr Haidenthaler macht die Übungen verdreht vor, die Turnsaal-Tafel zeigt die richtigen Tasten. Danach geht es durch Pausenhof und Computerraum zum Finale gegen Herrn Grimmer. Springt über seine angekündigte Regalwelle und nutzt die Pause danach.
+- **Turnier.** Tretet mit eurer Figur in vier Duellen gegen wechselnde CPU-Gegner an. Pro Runde gibt es eine andere Arena und die CPU reagiert schneller. Nach einer Niederlage könnt ihr dieselbe Runde erneut spielen. Gewonnene Turniere werden auf eurem Gerät gezählt.
+- **Tutorial.** Startet die fünf Übungen mit Herrn Haidenthaler direkt aus dem Hauptmenü.
 - **Versus.** Zwei Personen am selben PC oder eine Person gegen die CPU. Figuren und Arena wählt ihr vor der Runde. Bei Ablauf der Uhr zählen zuerst die verbleibenden Versuche, dann der niedrigere Rückstoßwert.
 - **Netzwerk.** Zwei Personen auf unterschiedlichen PCs. Eine Person startet den Host, die andere nutzt die Host-Adresse und den gleichen UDP-Port. Beide wählen ihre Figur vor dem Verbinden. Der Host wählt die Arena und startet die Runde.
+
+In Versus und im Netzwerk könnt ihr zwischen Pausenhof, Computerraum, Bibliothek, Werkstatt und Dachterrasse wählen. Im Turnier spielt ihr vier davon in wechselnder Reihenfolge.
 
 ### Steuerung
 

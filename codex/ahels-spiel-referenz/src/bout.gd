@@ -154,7 +154,7 @@ func tick(delta: float, first: int, first_edge: int, second: int, second_edge: i
 	time += delta
 	if mode == "training":
 		lesson_time += delta
-	if mode == "solo" or mode == "boss":
+	if mode == "solo" or mode == "boss" or mode == "tournament":
 		var bot := bot_input(delta)
 		second = bot_direction
 		second_edge = bot
@@ -461,6 +461,8 @@ func bot_input(delta: float) -> int:
 	if bot_clock > 0.0 or f.stun > 0.0 or f.respawn > 0.0:
 		return 0
 	bot_clock = rng.randf_range(0.16, 0.36) + (0.13 if difficulty == 0 else 0.0)
+	if difficulty > 1:
+		bot_clock *= 1.0 - 0.12 * (difficulty - 1)
 	if absf(gap) < 179.0 and player.p.y < f.p.y - 65.0 and f.jumps > 0 and f.v.y > -25.0:
 		return JUMP
 	if absf(gap) < 87.0 and absf(player.p.y - f.p.y) < 54.0:
