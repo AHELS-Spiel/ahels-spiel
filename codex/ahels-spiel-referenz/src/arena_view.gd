@@ -46,6 +46,7 @@ var menu_scene := "home"
 var match_context := ""
 var clock := 0.0
 var smooth_remote := false
+var reduced_effects := false
 var render_positions: Array[Vector2] = []
 var previous_state: ArenaBout
 
@@ -96,12 +97,12 @@ func draw_menu_background() -> void:
 	draw_line(Vector2(0, 631), Vector2(1280, 631), Color("#4c6578"), 2)
 	draw_platform(Rect2(650, 565, 553, 53), MINT, 1)
 	draw_platform(Rect2(778, 426, 155, 23), PEACH, 1)
-	for i in 32:
+	for i in (0 if reduced_effects else 32):
 		var x := fposmod(float(i * 173) + clock * (13.0 + float(i % 3)), 690.0) + 580.0
 		var y := 145.0 + fposmod(float(i * 83) - clock * float(6 + (i % 8)), 440.0)
 		var size := 2 + (i % 3)
 		draw_rect(Rect2(floorf(x), floorf(y), size, size), Color(0.98, 0.75, 0.64, 0.18 + float(i % 3) * 0.14))
-	var bob := roundf(sin(clock * 2.4) * 6.0)
+	var bob := 0.0 if reduced_effects else roundf(sin(clock * 2.4) * 6.0)
 	draw_circle(Vector2(947, 327), 152, Color(0.97, 0.74, 0.65, 0.11))
 	draw_arc(Vector2(964, 320), 147, 2.91, 4.99, 22, Color(0.64, 0.93, 0.80, 0.52), 2)
 	draw_arc(Vector2(945, 315), 170, -0.43, 2.2, 24, Color(0.98, 0.66, 0.54, 0.46), 2)
@@ -135,6 +136,8 @@ func draw_match() -> void:
 	draw_hud()
 	if bout.mode == "training":
 		draw_lesson()
+	elif bout.mode == "practice":
+		draw_practice()
 	if bout.starts_in > 0.0:
 		draw_countdown()
 
@@ -173,11 +176,11 @@ func draw_fighter(f: ArenaBout.Fighter, position: Vector2, index: int) -> void:
 	elif absf(f.v.x) > 33.0:
 		frame = 2 + int(f.run_cycle) % 3
 	var tint := Color.WHITE
-	if f.invulnerable > 0.12 and int(clock * 18.0) % 2 == 0:
-		tint.a = 0.57
+	if f.invulnerable > 0.12 and (reduced_effects or int(clock * 18.0) % 2 == 0):
+		tint.a = 0.75 if reduced_effects else 0.57
 	if f.stun > 0.11:
 		tint = Color("#ffd8c5")
-	if f.dodge_time > 0.0:
+	if f.dodge_time > 0.0 and not reduced_effects:
 		catalog.draw_sprite(self, f.id, frame, Rect2(foot.position - Vector2(f.v.x * 0.054, 0), foot.size),
 			f.facing, Color(accent, 0.27))
 	if f.standing:
@@ -219,6 +222,10 @@ func draw_flash(fx: Dictionary) -> void:
 	var progress := 1.0 - float(fx["life"]) / float(fx["max"])
 	var p: Vector2 = fx["p"]
 	var c := Color(fx["c"], 1.0 - progress)
+	if reduced_effects:
+		if fx["k"] != "dust" and progress < 0.65:
+			draw_arc(p, 12 + progress * 24, 0, TAU, 12, c, 2)
+		return
 	match String(fx["k"]):
 		"slash":
 			var angle := 0.0 if int(fx["v"]) > 0 else PI
@@ -280,14 +287,21 @@ func draw_training_actors() -> void:
 
 
 func draw_hud() -> void:
-	var middle := "TUTORIAL" if bout.mode == "training" else String(bout.stage["name"]).to_upper()
+	var middle := String(bout.stage["name"]).to_upper()
+	match bout.mode:
+		"training":
+			middle = "TUTORIAL"
+		"practice":
+			middle = "TRAINING"
 	draw_rect(Rect2(0, 0, 1280, 108), Color(0.055, 0.082, 0.141, 0.93))
 	draw_line(Vector2(0, 108), Vector2(1280, 108), Color("#465671"), 2)
 	draw_string(DISPLAY, Vector2(478, 47), middle, HORIZONTAL_ALIGNMENT_CENTER, 324, 29, PAPER)
 	var sub := "TURNSAAL"
-	if bout.mode != "training":
-		var remaining := ceili(maxf(0.0, ArenaBout.MAX_SECONDS - bout.time))
-		sub = "%d:%02d" % [remaining / 60, remaining % 60]
+	if bout.mode == "practice":
+		sub = "Gegner: %s" % ArenaBout.PRACTICE_BEHAVIORS[bout.practice_behavior]
+	elif bout.mode != "training":
+		var remaining := ceili(maxf(0.0, bout.time_limit - bout.time))
+		sub = "%d:%02d" % [remaining / 60, remaining % 60] if bout.time_limit > 0.0 else "Ohne Zeitlimit"
 	draw_string(BOLD, Vector2(488, 78), sub, HORIZONTAL_ALIGNMENT_CENTER, 304, 16, SOFT)
 	if not match_context.is_empty():
 		draw_string(BOLD, Vector2(488, 97), match_context, HORIZONTAL_ALIGNMENT_CENTER, 304, 11, MINT)
@@ -320,13 +334,24 @@ func draw_status(index: int) -> void:
 			var hint := "ÖFFNUNG" if bout.boss_recovery > 0 else "REGALWELLE!" if bout.boss_warning > 0 else "PHASE %d" % bout.boss_phase
 			draw_string(BOLD, Vector2(x+73, 81), hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, color)
 		else:
-			for stock in 3:
-				draw_rect(Rect2(x+73 + stock*18, 56, 11, 11), color if stock < f.stocks else Color("#39465b"))
-			draw_string(DISPLAY, Vector2(x+151, 83), "%d%%" % roundi(f.balance),
+			if bout.mode == "practice":
+				draw_string(TEXT, Vector2(x+73, 65), String(f.profile["ability"]),
+					HORIZONTAL_ALIGNMENT_LEFT, -1, 13, SOFT)
+			else:
+				for stock in bout.max_stocks:
+					draw_rect(Rect2(x+73 + stock*18, 56, 11, 11), color if stock < f.stocks else Color("#39465b"))
+			var value_x := x + (199 if bout.mode == "practice" else 169)
+			draw_string(DISPLAY, Vector2(value_x, 83), "%d%%" % roundi(f.balance),
 				HORIZONTAL_ALIGNMENT_LEFT, -1, 36, color)
 	if f.id != ArenaCatalog.BOSS:
 		draw_rect(Rect2(x+73, 82, 71, 4), Color("#3a4b61"))
 		draw_rect(Rect2(x+73, 82, 71.0*(1.0 - f.cooldown / float(f.profile["cooldown"])), 4), color)
+
+
+func draw_practice() -> void:
+	draw_rect(Rect2(395, 673, 490, 33), Color("#101728"))
+	draw_string(BOLD, Vector2(405, 695), "R  Zurücksetzen     F2  Gegner     Esc / Start  Optionen",
+		HORIZONTAL_ALIGNMENT_CENTER, 470, 15, PAPER)
 
 
 func draw_lesson() -> void:
