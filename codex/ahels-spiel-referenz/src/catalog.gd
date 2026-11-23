@@ -15,8 +15,10 @@ var backdrops: Array[Texture2D] = []
 
 
 func _init() -> void:
+	var move_sets: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://data/move_sets.json"))
 	for entry: Dictionary in JSON.parse_string(FileAccess.get_file_as_string("res://data/fighters.json")):
 		entry["accent"] = Color.from_string(entry["color"], Color.WHITE)
+		entry.merge(move_sets[entry["id"]])
 		fighters.append(entry)
 		sprites.append(load("res://assets/pixel/%s.png" % entry["id"]) as Texture2D)
 		portraits.append(load("res://assets/pixel/%s-portrait.png" % entry["id"]) as Texture2D)

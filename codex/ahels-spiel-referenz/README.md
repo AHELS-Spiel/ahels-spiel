@@ -1,4 +1,4 @@
-# AHELS Arena V4
+# AHELS Arena V5
 
 Ein Pixel-Plattform-Fighter mit 24 Klassenfiguren und zwei Lehrern. Treffer erhöhen den Rückstoß. Wer über den Rand fällt, verliert einen Versuch.
 
@@ -26,6 +26,14 @@ Die macOS-App ist ad hoc signiert. Je nach Sicherheitseinstellung braucht sie be
 
 Pausenhof, Computerraum, Bibliothek, Werkstatt, Dachterrasse, Aula und Physiksaal sind Kampfarenen. Versus und Überleben bieten zusätzlich Zufallsauswahl. Freies Training und Tutorial finden im Turnsaal statt.
 
+### Sechs Moves pro Figur
+
+Öffnet **Moves ansehen** in der Figurenwahl oder **Moves** in der Trainingspause. Angriff am Boden, beim Laufen und in der Luft ergibt jeweils eine andere Aktion. Drückt **Unten und Angriff** gleichzeitig für den Beinfeger. Für einen Ketten-Finisher drückt ihr **Spezial**, solange nach einem Treffer das Finisher-Fenster im HUD steht. Der Finisher und die reguläre Spezialfähigkeit teilen sich die Abklingzeit.
+
+Wechselt zwischen den Angriffen. Wiederholte Treffer mit demselben Grundangriff verlieren an Kraft. Jede Figur hat einen Grundangriff mit zusätzlicher Reichweite und zusätzlichem Schaden.
+
+Die Musik wechselt bei einem knappen Duell mit letzten Versuchen oder ablaufender Uhr. Wenn eure Ausgabe Klasseneinwürfe enthält, könnt ihr sie in den Einstellungen ausschalten.
+
 ### Standardsteuerung
 
 | Aktion | Spieler 1 / Netzwerkspieler | Spieler 2 lokal | Controller |
@@ -41,7 +49,7 @@ Pausenhof, Computerraum, Bibliothek, Werkstatt, Dachterrasse, Aula und Physiksaa
 
 ### Netzwerk einrichten
 
-Im LAN verwendet ihr die im Menü angezeigte Host-Adresse und denselben UDP-Port. Der Standardport ist **24738/UDP**. Über das Internet benötigt der Host eine erreichbare IP-Adresse oder einen DNS-Namen und gegebenenfalls eine UDP-Portweiterleitung. Alternativ geht ein gemeinsames virtuelles Netzwerk. Beide Instanzen brauchen V4. In der Netzwerkpause läuft die Runde für das Gegenüber weiter.
+Im LAN verwendet ihr die im Menü angezeigte Host-Adresse und denselben UDP-Port. Der Standardport ist **24738/UDP**. Über das Internet benötigt der Host eine erreichbare IP-Adresse oder einen DNS-Namen und gegebenenfalls eine UDP-Portweiterleitung. Alternativ geht ein gemeinsames virtuelles Netzwerk. Beide Instanzen brauchen V5. In der Netzwerkpause läuft die Runde für das Gegenüber weiter.
 
 ## Entwickeln und exportieren
 
@@ -55,13 +63,15 @@ Im LAN verwendet ihr die im Menü angezeigte Host-Adresse und denselben UDP-Port
 | `src/duel_link.gd` | LAN-Lobby, Rollen, Start und Synchronisierung |
 | `data/arenas.json` | Arenen, Plattformen, Startpositionen und Vorschautexte |
 | `data/fighters.json` | Figuren, Fähigkeiten und Spielwerte |
+| `src/arena_moves.gd` und `data/move_sets.json` | Angriffsdaten, Finisher und Move-Liste pro Figur |
 
-`python art/make_assets.py` erzeugt die Pixelbilder und Audiodateien mit Python und Pillow. Die beiden Felix- und Jonas-Figuren sind an der Figurennummer erkennbar.
+`python art/make_assets.py` erzeugt die Pixelbilder und Soundeffekte mit Python und Pillow. `python art/soundtrack.py` rendert die vier Instrumentaltracks mit NumPy und FFmpeg. Die beiden Felix- und Jonas-Figuren sind an der Figurennummer erkennbar.
 
 Nach `godot --headless --editor --import` lassen sich die Tests aus dem Projektordner ausführen. Verwendet pro Test ein frisches Profil.
 
 ```sh
 XDG_DATA_HOME="$(mktemp -d)" godot --headless --script res://tests/core_flows.gd
+XDG_DATA_HOME="$(mktemp -d)" godot --headless --script res://tests/combat_moves.gd
 XDG_DATA_HOME="$(mktemp -d)" godot --headless --script res://tests/playthroughs.gd
 XDG_DATA_HOME="$(mktemp -d)" godot --headless --script res://tests/arena_flows.gd
 XDG_DATA_HOME="$(mktemp -d)" godot --headless --script res://tests/controller_flows.gd

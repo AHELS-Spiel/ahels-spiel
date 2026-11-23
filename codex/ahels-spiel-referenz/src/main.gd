@@ -79,6 +79,10 @@ var previous_keys := Vector2i.ZERO
 var frame_serial := 0
 var quitting := false
 var music: AudioStreamPlayer
+var voice: AudioStreamPlayer
+var voice_streams: Dictionary = {}
+var voices_enabled := true
+var last_voice_ms := -10000
 var track := ""
 var effects: Dictionary = {}
 var muted := false
@@ -162,6 +166,9 @@ func _exit_tree() -> void:
 	for sound: AudioStreamPlayer in effects.values():
 		sound.stop()
 		sound.stream = null
+	if is_instance_valid(voice):
+		voice.stop()
+		voice.stream = null
 
 
 func load_settings() -> void:
@@ -169,6 +176,7 @@ func load_settings() -> void:
 	if config.load(SAVE_FILE) != OK:
 		return
 	muted = saved_flag(config.get_value("audio", "muted", false))
+	voices_enabled = saved_flag(config.get_value("audio", "class_voices", true))
 	completed = saved_flag(config.get_value("campaign", "finished", false))
 	tournament_wins = bounded_int(config.get_value("tournament", "wins", 0), 0, 0, 1000000)
 	survival_best = bounded_int(config.get_value("survival", "best_wave", 0), 0, 0, SURVIVAL_DIFFICULTIES.size())
@@ -194,6 +202,7 @@ func save_settings() -> void:
 	var config := ConfigFile.new()
 	config.load(SAVE_FILE)
 	config.set_value("audio", "muted", muted)
+	config.set_value("audio", "class_voices", voices_enabled)
 	config.set_value("audio", "music", music_level)
 	config.set_value("audio", "effects", effects_level)
 	config.set_value("display", "fullscreen", fullscreen)
@@ -212,12 +221,19 @@ func make_audio() -> void:
 	music = AudioStreamPlayer.new()
 	add_child(music)
 	music.finished.connect(repeat_music)
-	for cue in ["select", "jump", "swing", "hit", "special", "out", "success", "boss"]:
+	for cue in ["select", "jump", "swing", "hit", "special", "out", "success", "boss", "combo"]:
 		var player := AudioStreamPlayer.new()
 		player.stream = load("res://assets/audio/%s.wav" % cue)
 		player.max_polyphony = 3
 		add_child(player)
 		effects[cue] = player
+	for cue in ["out", "combo"]:
+		var clip_path := "res://assets/class_voice/%s.ogg" % cue
+		if ResourceLoader.exists(clip_path):
+			voice_streams[cue] = load(clip_path)
+	if not voice_streams.is_empty():
+		voice = AudioStreamPlayer.new()
+		add_child(voice)
 
 
 func change_music(name: String) -> void:
@@ -225,7 +241,9 @@ func change_music(name: String) -> void:
 		return
 	track = name
 	music.stop()
-	music.stream = load("res://assets/audio/%s.wav" % name)
+	var loop := load("res://assets/audio/%s.ogg" % name) as AudioStreamOggVorbis
+	loop.loop = true
+	music.stream = loop
 	repeat_music()
 
 
@@ -235,15 +253,20 @@ func repeat_music() -> void:
 
 
 func apply_audio() -> void:
-	music.volume_db = -13.8 + linear_to_db(maxf(0.0001, music_level / 100.0))
+	music.volume_db = -11.3 + linear_to_db(maxf(0.0001, music_level / 100.0))
+	var effect_level_db := linear_to_db(maxf(0.0001, effects_level / 100.0))
 	for effect: AudioStreamPlayer in effects.values():
-		effect.volume_db = -9.9 + linear_to_db(maxf(0.0001, effects_level / 100.0))
+		effect.volume_db = -9.9 + effect_level_db
+	if is_instance_valid(voice):
+		voice.volume_db = -6.5 + effect_level_db
 
 
 func stop_audio() -> void:
 	music.stop()
 	for effect: AudioStreamPlayer in effects.values():
 		effect.stop()
+	if is_instance_valid(voice):
+		voice.stop()
 
 
 func toggle_audio() -> void:
@@ -277,9 +300,26 @@ func display_mode_text() -> String:
 
 
 func play_sound(cue: String) -> void:
-	if not muted and not quitting and DisplayServer.get_name() != "headless" and effects.has(cue):
+	if muted or quitting or DisplayServer.get_name() == "headless":
+		return
+	if effects.has(cue):
 		var player: AudioStreamPlayer = effects[cue]
 		player.play()
+	if voices_enabled and bout != null and bout.mode != "practice" and voice_streams.has(cue):
+		var now := Time.get_ticks_msec()
+		if not voice.playing and now - last_voice_ms >= 9000:
+			voice.stream = voice_streams[cue]
+			voice.play()
+			last_voice_ms = now
+
+
+func update_match_music() -> void:
+	if track != "arena" or bout.mode in ["training", "practice"] or bout.winner != ArenaBout.ONGOING:
+		return
+	var last_stocks := bout.max_stocks > 1 and bout.fighters[0].stocks == 1 and bout.fighters[1].stocks == 1
+	var close_to_time := bout.time_limit >= 30.0 and bout.time >= bout.time_limit - 24.0
+	if bout.starts_in == 0.0 and (last_stocks or close_to_time):
+		change_music("pressure")
 
 
 func _physics_process(delta: float) -> void:
@@ -306,6 +346,7 @@ func _physics_process(delta: float) -> void:
 			link.send_controls(first, first_edge)
 	else:
 		bout.tick(delta, first, first_edge, second, second_edge)
+	update_match_music()
 	for cue in bout.audio_queue:
 		play_sound(cue)
 	bout.audio_queue.clear()
@@ -390,6 +431,9 @@ func go_back() -> void:
 		"bindings":
 			show_controls()
 			return
+		"moves":
+			show_pause()
+			return
 	match screen:
 		"bout":
 			if outcome_shown or heard_lesson:
@@ -409,6 +453,8 @@ func go_back() -> void:
 			show_selection("versus", "Regeln")
 		"arenas":
 			leave_arena_picker()
+		"moves":
+			show_selection(selection_mode, "Moves ansehen")
 		"select", "settings", "chapter", "tournament_board", "goals":
 			show_home()
 
@@ -526,7 +572,21 @@ func show_settings(from_pause: bool = false) -> void:
 	label("Weniger Partikel und Blinkeffekte. Warnzeichen bleiben sichtbar.",
 		Rect2(681, 375, 482, 60), 16, TEXT, DIM, HORIZONTAL_ALIGNMENT_LEFT, null, true)
 	button("Steuerungsübersicht", Rect2(61, 537, 353, 54), show_controls)
+	if is_instance_valid(voice):
+		var voice_button := button(voices_caption(), Rect2(433, 537, 332, 54), toggle_voices)
+		voice_button.pressed.connect(func() -> void: voice_button.text = voices_caption())
 	slider.grab_focus()
+
+
+func voices_caption() -> String:
+	return "Klassenstimmen an" if voices_enabled else "Klassenstimmen aus"
+
+
+func toggle_voices() -> void:
+	voices_enabled = not voices_enabled
+	if not voices_enabled:
+		voice.stop()
+	save_settings()
 
 
 func audio_slider(caption: String, level: int, y: int, is_music: bool) -> HSlider:
@@ -716,6 +776,7 @@ func show_selection(kind: String, focus_caption: String = "") -> void:
 		label(names[i], Rect2(x, 518, 102, 28), 13, BOLD, DIM)
 		ribbon(Rect2(x, 553, 92, 5), EDGE)
 		ribbon(Rect2(x, 553, 92 * clampf((values[i] - .75) / .52, .1, 1.0), 5), accent)
+	button("Moves ansehen", Rect2(853, 565, 342, 35), show_move_list.bind(chosen, picking))
 
 	if kind == "versus":
 		button("Spieler 1", Rect2(59, 620, 119, 51), pick_player.bind(0), picking == 0)
@@ -753,6 +814,39 @@ func show_selection(kind: String, focus_caption: String = "") -> void:
 			return
 	if is_instance_valid(selected_card):
 		selected_card.grab_focus()
+
+
+func show_move_list(id: int, player: int, from_pause: bool = false) -> void:
+	preferences_page("moves", from_pause)
+	var back_action := show_pause if from_pause else show_selection.bind(selection_mode, "Moves ansehen")
+	header("Move-Liste", fighter_name(id), back_action).grab_focus()
+	var profile := catalog.fighters[id]
+	var accent: Color = profile["accent"]
+	style_panel(Rect2(59, 148, 280, 462), PANEL, EDGE)
+	portrait(id, Rect2(83, 168, 230, 268), ui)
+	label("VERSTÄRKTER GRUNDANGRIFF", Rect2(83, 445, 230, 34), 14, BOLD, accent, HORIZONTAL_ALIGNMENT_CENTER)
+	label(ArenaMoves.move_name(profile, profile["focus"]), Rect2(76, 483, 246, 42), 22, DISPLAY,
+		PAPER, HORIZONTAL_ALIGNMENT_CENTER)
+	label("+12 % Reichweite und Schaden", Rect2(75, 526, 249, 38), 13, TEXT, DIM,
+		HORIZONTAL_ALIGNMENT_CENTER)
+	var attack := keyboard.caption(player, 3)
+	var special := keyboard.caption(player, 4)
+	var commands := [attack + "  /  X", "Beim Laufen  " + attack + "  /  X",
+		keyboard.caption(player, 6) + " + " + attack + "  /  ↓ + X",
+		"In der Luft  " + attack + "  /  X", special + "  /  Y",
+		"Nach Treffer  " + special + "  /  Y"]
+	for row in ArenaMoves.KEYS.size():
+		var move := ArenaMoves.KEYS[row]
+		var y := 148 + row * 78
+		style_panel(Rect2(361, y, 858, 70), PANEL, EDGE)
+		if move == profile["focus"] or move == "finisher":
+			ribbon(Rect2(361, y, 3, 70), accent)
+		label(ArenaMoves.move_name(profile, move), Rect2(380, y + 3, 489, 34), 19, BOLD)
+		label(commands[row], Rect2(868, y + 3, 331, 34), 16, BOLD, accent, HORIZONTAL_ALIGNMENT_RIGHT)
+		var help := String(profile["description"] if move == "signature" else ArenaMoves.PURPOSE[move])
+		label(help, Rect2(380, y + 37, 818, 27), 15, TEXT, DIM)
+	label("Wechsle zwischen Angriffen. Wiederholte Treffer mit demselben Move werden schwächer.",
+		Rect2(361, 625, 858, 32), 16, TEXT, DIM)
 
 
 func choose_fighter(id: int) -> void:
@@ -1182,8 +1276,13 @@ func show_pause() -> void:
 	if not online:
 		button("Neuer Lauf" if bout.mode == "survival" else "Neu starten", Rect2(439, 397, 404, 50),
 			begin_survival if bout.mode == "survival" else restart_bout)
-	button("Einstellungen", Rect2(439, 456 if not online else 397, 197, 50), show_settings.bind(true))
-	button("Zum Hauptmenü", Rect2(646, 456 if not online else 397, 197, 50), show_home)
+	if online:
+		button("Einstellungen", Rect2(439, 397, 197, 50), show_settings.bind(true))
+		button("Zum Hauptmenü", Rect2(646, 397, 197, 50), show_home)
+	else:
+		button("Einstellungen", Rect2(408, 456, 146, 50), show_settings.bind(true))
+		button("Moves", Rect2(564, 456, 140, 50), show_move_list.bind(bout.fighters[0].id, 0, true))
+		button("Zum Hauptmenü", Rect2(714, 456, 158, 50), show_home)
 
 
 func show_practice_pause() -> void:
@@ -1200,8 +1299,9 @@ func show_practice_pause() -> void:
 	label("Der Zielwert gilt ab dem nächsten Reset.", Rect2(377, 352, 515, 30), 15, TEXT, DIM)
 	button("Weiter", Rect2(377, 401, 253, 54), resume_bout, true).grab_focus()
 	button("Zurücksetzen", Rect2(646, 401, 254, 54), restart_bout)
-	button("Figurenwahl", Rect2(377, 474, 253, 52), show_selection.bind("practice"))
-	button("Einstellungen", Rect2(646, 474, 254, 52), show_settings.bind(true))
+	button("Figurenwahl", Rect2(377, 474, 164, 52), show_selection.bind("practice"))
+	button("Moves", Rect2(556, 474, 165, 52), show_move_list.bind(bout.fighters[0].id, 0, true))
+	button("Einstellungen", Rect2(736, 474, 164, 52), show_settings.bind(true))
 	button("Zum Hauptmenü", Rect2(377, 546, 523, 48), show_home)
 
 

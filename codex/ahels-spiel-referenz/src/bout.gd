@@ -8,6 +8,7 @@ const ATTACK := 8
 const SPECIAL := 16
 const DODGE := 32
 const DOWN := 64
+const HELD_ACTIONS := LEFT | RIGHT | DOWN
 const FIGHT_ACTIONS := ATTACK | SPECIAL | DODGE
 const ACTIONS := JUMP | FIGHT_ACTIONS | DOWN
 const ONGOING := -2
@@ -16,7 +17,6 @@ const MAX_SECONDS := 150.0
 const DEFAULT_STOCKS := 3
 const PRACTICE_BEHAVIORS: Array[String] = ["Still", "Springt", "CPU"]
 const GRAVITY := 1140.0
-const NORMAL_LOCK := 0.25
 const STUDENT_CAP := 300.0
 
 class Fighter:
@@ -32,9 +32,11 @@ class Fighter:
 	var coyote := 0.0
 	var jump_buffer := 0.0
 	var buffered_action := 0
+	var attack_down := false
 	var action_time := 0.0
 	var dodge_ready := true
 	var dodge_time := 0.0
+	var dodge_recovery := 0.0
 	var stun := 0.0
 	var shield := 0.0
 	var cooldown := 0.0
@@ -42,6 +44,11 @@ class Fighter:
 	var drop := 0.0
 	var attack_time := 0.0
 	var attack_kind := ""
+	var attack_release := 0.0
+	var combo_window := 0.0
+	var last_opener := ""
+	var repeated_hits := 0
+	var repetition_time := 0.0
 	var pending := false
 	var run_cycle := 0.0
 	var respawn := 0.0
@@ -134,15 +141,22 @@ func reset_position(index: int, show_flash: bool = true) -> void:
 	fighter.balance = float(practice_damage) if mode == "practice" and index == 1 else 0.0
 	fighter.stun = 0.0
 	fighter.dodge_time = 0.0
+	fighter.dodge_recovery = 0.0
 	fighter.shield = 0.0
 	fighter.attack_time = 0.0
 	fighter.attack_kind = ""
+	fighter.attack_release = 0.0
+	fighter.combo_window = 0.0
+	fighter.last_opener = ""
+	fighter.repeated_hits = 0
+	fighter.repetition_time = 0.0
 	fighter.pending = false
 	fighter.standing = not show_flash
 	fighter.jumps = 2
 	fighter.coyote = 0.0
 	fighter.jump_buffer = 0.0
 	fighter.buffered_action = 0
+	fighter.attack_down = false
 	fighter.action_time = 0.0
 	fighter.dodge_ready = true
 	fighter.cooldown = 0.0
@@ -205,6 +219,11 @@ func update_fighter(index: int, delta: float, held: int, edge: int) -> void:
 		return
 	f.cooldown = maxf(0.0, f.cooldown - delta)
 	f.dodge_time = maxf(0.0, f.dodge_time - delta)
+	f.dodge_recovery = maxf(0.0, f.dodge_recovery - delta)
+	f.combo_window = maxf(0.0, f.combo_window - delta)
+	f.repetition_time = maxf(0.0, f.repetition_time - delta)
+	if f.repetition_time == 0.0:
+		f.repeated_hits = 0
 	f.shield = maxf(0.0, f.shield - delta)
 	f.invulnerable = maxf(0.0, f.invulnerable - delta)
 	f.respawn = maxf(0.0, f.respawn - delta)
@@ -217,6 +236,7 @@ func update_fighter(index: int, delta: float, held: int, edge: int) -> void:
 		f.jump_buffer = maxf(0.0, f.jump_buffer - delta)
 	if (edge & FIGHT_ACTIONS) != 0:
 		f.buffered_action = edge & FIGHT_ACTIONS
+		f.attack_down = ((held | edge) & DOWN) != 0
 		f.action_time = 0.14
 	else:
 		f.action_time = maxf(0.0, f.action_time - delta)
@@ -225,8 +245,7 @@ func update_fighter(index: int, delta: float, held: int, edge: int) -> void:
 
 	if f.attack_time > 0.0:
 		f.attack_time = maxf(0.0, f.attack_time - delta)
-		var threshold := 0.15 if f.attack_kind == "normal" else 0.34
-		if f.pending and f.attack_time <= threshold:
+		if f.pending and f.attack_time <= f.attack_release:
 			f.pending = false
 			resolve_attack(index)
 		if f.attack_time == 0.0:
@@ -245,11 +264,13 @@ func update_fighter(index: int, delta: float, held: int, edge: int) -> void:
 
 func move_fighter(f: Fighter, delta: float, edge: int, steering: int) -> void:
 	var stats := f.profile
-	var dodge := (f.buffered_action & DODGE) != 0 and f.dodge_ready and f.attack_time <= 0.0
+	var dodge := (f.buffered_action & DODGE) != 0 and f.dodge_ready \
+		and f.dodge_recovery <= 0.0 and f.attack_time <= 0.0
 	if dodge:
 		f.dodge_ready = false
 		f.buffered_action = 0
 		f.dodge_time = 0.24
+		f.dodge_recovery = 0.51
 		f.invulnerable = maxf(f.invulnerable, 0.19)
 		f.v = Vector2((steering if steering != 0 else f.facing) * 480.0, f.v.y * 0.25)
 		flash(f.p - Vector2(0, 37), stats["accent"], "dodge")
@@ -276,20 +297,41 @@ func move_fighter(f: Fighter, delta: float, edge: int, steering: int) -> void:
 		sound("jump")
 		if mode == "training" and tutorial_step == 1:
 			next_lesson()
-	if (edge & DOWN) != 0:
+	if (edge & DOWN) != 0 and (f.buffered_action & ATTACK) == 0:
 		f.drop = 0.18
 		if not f.standing:
 			f.v.y = maxf(f.v.y, 390.0)
-	if f.attack_time <= 0.0:
-		if (f.buffered_action & SPECIAL) != 0 and f.cooldown <= 0.0:
-			f.buffered_action = 0
+
+	if (f.buffered_action & SPECIAL) != 0 and f.cooldown <= 0.0:
+		if f.combo_window > 0.0 and not f.pending and f.attack_time <= 0.22:
+			f.cooldown = float(stats["cooldown"])
+			f.v.x = f.facing * 290.0
+			begin_attack(f, "finisher")
+			return
+		if f.attack_time <= 0.0:
 			begin_special(f)
-		elif (f.buffered_action & ATTACK) != 0:
-			f.buffered_action = 0
-			f.attack_kind = "normal"
-			f.attack_time = NORMAL_LOCK
-			f.pending = true
-			sound("swing")
+			return
+	if (f.buffered_action & ATTACK) != 0 and f.attack_time <= 0.0:
+		var move := "normal"
+		if not f.standing:
+			move = "air"
+		elif f.attack_down:
+			move = "sweep"
+		elif steering != 0 and absf(f.v.x) >= move_speed * 0.73:
+			move = "rush"
+			f.v.x = f.facing * (390.0 + 78.0 * float(stats["speed"]))
+		begin_attack(f, move)
+
+
+func begin_attack(f: Fighter, move: String) -> void:
+	var attack: Dictionary = ArenaMoves.ATTACKS[move]
+	f.buffered_action = 0
+	f.attack_kind = move
+	f.attack_time = float(attack["lock"])
+	f.attack_release = f.attack_time - float(attack["windup"])
+	f.pending = true
+	f.combo_window = 0.0
+	sound("special" if move == "finisher" else "swing")
 
 
 func integrate(f: Fighter, delta: float) -> void:
@@ -322,8 +364,11 @@ func integrate(f: Fighter, delta: float) -> void:
 
 
 func begin_special(f: Fighter) -> void:
+	f.buffered_action = 0
+	f.combo_window = 0.0
 	f.attack_kind = String(f.profile["kind"])
 	f.attack_time = 0.47
+	f.attack_release = 0.34
 	f.cooldown = float(f.profile["cooldown"])
 	f.pending = true
 	match f.attack_kind:
@@ -346,6 +391,9 @@ func begin_special(f: Fighter) -> void:
 func resolve_attack(index: int) -> void:
 	var f := fighters[index]
 	var kind := f.attack_kind
+	if ArenaMoves.ATTACKS.has(kind):
+		resolve_openers_and_finisher(index, kind)
+		return
 	var visual: Color = f.profile["accent"]
 	var at := f.p - Vector2(0, 34)
 	var reach := 85.0
@@ -383,15 +431,44 @@ func resolve_attack(index: int) -> void:
 			return
 	flash(at + Vector2(f.facing * 33 if forward_only else 0, 0), visual,
 		"slash" if forward_only else "burst", f.facing)
+	if mode != "training":
+		var target := fighters[1 - index]
+		if in_reach(f, target.p, reach, vertical, forward_only):
+			hit(target, power * strength, f.facing if forward_only else direction(f.p.x, target.p.x), visual)
+
+
+func resolve_openers_and_finisher(index: int, move: String) -> void:
+	var f := fighters[index]
+	var attack: Dictionary = ArenaMoves.ATTACKS[move]
+	var tint: Color = f.profile["accent"]
+	var focus_bonus := 1.12 if f.profile["focus"] == move else 1.0
+	var reach := float(attack["reach"]) * focus_bonus
+	var height := float(attack["height"])
+	var visual_origin := f.p - Vector2(0, 17 if move == "sweep" else 37)
+	flash(visual_origin + Vector2(f.facing * 31, 0), tint, attack["fx"], f.facing)
 	if mode == "training":
-		if tutorial_step == 2 and kind == "normal" and in_reach(f, Vector2(930, 560), reach, vertical, true):
-			flash(Vector2(930, 523), visual, "hit")
+		if tutorial_step == 2 and in_reach(f, Vector2(930, 560), reach, height, true):
+			flash(Vector2(930, 523), tint, "hit")
 			sound("hit")
 			next_lesson()
-	else:
-		var target := fighters[1 - index]
-		if target.stocks > 0 and in_reach(f, target.p, reach, vertical, forward_only):
-			hit(target, power * strength, f.facing if forward_only else direction(f.p.x, target.p.x), visual)
+		return
+	var target := fighters[1 - index]
+	var aim := target.p - Vector2(0, 19 if move == "air" else 0)
+	if not in_reach(f, aim, reach, height, true):
+		return
+	var opener := move != "finisher"
+	var repeats := f.repeated_hits if f.last_opener == move else 0
+	var strength := lerpf(1.0, float(f.profile["power"]), 0.55) * focus_bonus
+	var power := float(attack["power"]) * strength * ArenaMoves.repetition_scale(repeats)
+	if hit(target, power, f.facing, tint, float(attack["push"]), float(attack["lift"])):
+		if opener:
+			f.last_opener = move
+			f.repeated_hits = repeats + 1
+			f.repetition_time = ArenaMoves.STALE_TIME
+			f.combo_window = ArenaMoves.CHAIN_TIME
+		else:
+			flash(target.p - Vector2(0, 44), tint, "combo", f.facing)
+			sound("combo")
 
 
 func in_reach(f: Fighter, target: Vector2, reach: float, vertical: float, forward: bool) -> bool:
@@ -399,27 +476,30 @@ func in_reach(f: Fighter, target: Vector2, reach: float, vertical: float, forwar
 	return absf(gap.x) <= reach and absf(gap.y) <= vertical and (not forward or gap.x * f.facing >= -20.0)
 
 
-func hit(f: Fighter, power: float, side: int, tint: Color) -> void:
+func hit(f: Fighter, power: float, side: int, tint: Color, push_scale: float = 1.0,
+		lift_scale: float = 1.0) -> bool:
 	if f.invulnerable > 0.0 or f.stocks <= 0:
-		return
+		return false
 	if f.shield > 0.0:
 		f.shield = 0.0
 		f.invulnerable = 0.14
 		flash(f.p - Vector2(0, 32), Color("#a8ecf0"), "burst")
 		sound("select")
-		return
+		return false
 	var is_boss := mode == "boss" and f == fighters[1]
 	var weight := float(f.profile["weight"]) * (1.55 if is_boss else 1.0)
 	f.balance = minf(STUDENT_CAP, f.balance + power)
-	var push := (178.0 + power * 9.0 + f.balance * 3.6) / weight
-	f.v = Vector2(side * push, -maxf(155.0, push * 0.43))
+	var push := (178.0 + power * 9.0 + f.balance * 3.6) * push_scale / weight
+	f.v = Vector2(side * push, -maxf(155.0, push * 0.43) * lift_scale)
 	f.stun = clampf(push / 1560.0, 0.16, 0.56)
 	f.invulnerable = 0.075
 	f.standing = false
 	f.attack_time = 0.0
+	f.combo_window = 0.0
 	f.pending = false
 	flash(f.p - Vector2(0, 36), tint, "hit", side)
 	sound("hit")
+	return true
 
 
 func update_shots(delta: float) -> void:
@@ -478,9 +558,18 @@ func bot_input(delta: float) -> int:
 	bot_clock = rng.randf_range(0.16, 0.36) + (0.13 if difficulty == 0 else 0.0)
 	if difficulty > 1:
 		bot_clock *= 1.0 - 0.12 * (difficulty - 1)
+	var vertical_gap := absf(player.p.y - f.p.y)
+	if f.combo_window > 0.0 and f.cooldown <= 0.0 and absf(gap) < 145.0 and vertical_gap < 86.0:
+		return SPECIAL
+	if mode != "boss" and difficulty > 0 and absf(gap) < 105.0 and vertical_gap < 60.0:
+		if player.pending and f.dodge_ready and f.dodge_recovery <= 0.0 and rng.randf() < 0.19 * difficulty:
+			bot_direction = LEFT if gap > 0.0 else RIGHT
+			return DODGE
+		if f.standing and player.standing and absf(gap) <= 83.0 and rng.randf() < 0.30:
+			return DOWN | ATTACK
 	if absf(gap) < 179.0 and player.p.y < f.p.y - 65.0 and f.jumps > 0 and f.v.y > -25.0:
-		return JUMP
-	if absf(gap) < 87.0 and absf(player.p.y - f.p.y) < 54.0:
+		return JUMP | ATTACK if difficulty > 0 and player.p.y > f.p.y - 90.0 else JUMP
+	if absf(gap) < 87.0 and vertical_gap < 54.0:
 		if mode == "boss":
 			return SPECIAL if f.cooldown <= 0.0 and rng.randf() < 0.38 else ATTACK
 		return SPECIAL if f.cooldown <= 0.0 and rng.randf() < (0.18 + difficulty * 0.12) else ATTACK
@@ -572,7 +661,8 @@ func snapshot() -> Dictionary:
 	var objects: Array = []
 	for f in fighters:
 		actors.append([f.p, f.v, f.facing, f.balance, f.stocks, f.standing, f.attack_time,
-			f.attack_kind, f.run_cycle, f.stun, f.invulnerable, f.dodge_time, f.shield, f.cooldown])
+			f.attack_kind, f.run_cycle, f.stun, f.invulnerable, f.dodge_time, f.shield, f.cooldown,
+			f.pending, f.combo_window, f.repeated_hits, f.last_opener])
 	for shot in shots:
 		objects.append([shot.p, shot.v, shot.tint, shot.low])
 	return {"t": time, "c": starts_in, "w": winner, "f": actors, "s": objects, "x": flashes,
@@ -600,6 +690,10 @@ func apply_snapshot(state: Dictionary) -> void:
 		f.dodge_time = data[11]
 		f.shield = data[12]
 		f.cooldown = data[13]
+		f.pending = data[14]
+		f.combo_window = data[15]
+		f.repeated_hits = data[16]
+		f.last_opener = data[17]
 	shots.clear()
 	for shot: Array in state["s"]:
 		shots.append(Shot.new(shot[0], shot[1], 0, 1.0, 0.0, shot[2], shot[3]))

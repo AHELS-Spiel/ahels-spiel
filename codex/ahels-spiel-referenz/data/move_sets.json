@@ -1,0 +1,262 @@
+{
+  "figur-01": {
+    "focus": "rush",
+    "moves": {
+      "normal": "Taktstoß",
+      "rush": "Turbo-Anlauf",
+      "sweep": "Bodenlinie",
+      "air": "Überholer",
+      "finisher": "Zielspurt"
+    }
+  },
+  "figur-02": {
+    "focus": "normal",
+    "moves": {
+      "normal": "Pendelstoß",
+      "rush": "Tempo-Vorstoß",
+      "sweep": "Taktschnitt",
+      "air": "Synkope",
+      "finisher": "Taktwechsel"
+    }
+  },
+  "figur-03": {
+    "focus": "air",
+    "moves": {
+      "normal": "Federtipp",
+      "rush": "Bandanlauf",
+      "sweep": "Sprungfalle",
+      "air": "Federtritt",
+      "finisher": "Doppelfeder"
+    }
+  },
+  "figur-04": {
+    "focus": "rush",
+    "moves": {
+      "normal": "Kurvenhaken",
+      "rush": "Kehrtwende",
+      "sweep": "Kantenkehrer",
+      "air": "Bogenstoß",
+      "finisher": "Steilkurve"
+    }
+  },
+  "figur-05": {
+    "focus": "sweep",
+    "moves": {
+      "normal": "Klopfzeichen",
+      "rush": "Druckstoß",
+      "sweep": "Tiefbass",
+      "air": "Luftkessel",
+      "finisher": "Schallbruch"
+    }
+  },
+  "figur-06": {
+    "focus": "air",
+    "moves": {
+      "normal": "Funkenhieb",
+      "rush": "Drahtlauf",
+      "sweep": "Kabelzug",
+      "air": "Hochspannung",
+      "finisher": "Funkenkette"
+    }
+  },
+  "figur-07": {
+    "focus": "air",
+    "moves": {
+      "normal": "Wirbelstoß",
+      "rush": "Fallwind",
+      "sweep": "Windfeger",
+      "air": "Gleittritt",
+      "finisher": "Sturmböe"
+    }
+  },
+  "figur-08": {
+    "focus": "normal",
+    "moves": {
+      "normal": "Maßstoß",
+      "rush": "Vorlauf",
+      "sweep": "Flacher Bogen",
+      "air": "Ferntritt",
+      "finisher": "Weite Kehre"
+    }
+  },
+  "figur-09": {
+    "focus": "sweep",
+    "moves": {
+      "normal": "Kreisstoß",
+      "rush": "Drehschub",
+      "sweep": "Bodenkreisel",
+      "air": "Luftdreher",
+      "finisher": "Doppelspirale"
+    }
+  },
+  "figur-10": {
+    "focus": "air",
+    "moves": {
+      "normal": "Impulsstoß",
+      "rush": "Startimpuls",
+      "sweep": "Bodenblitz",
+      "air": "Querfunke",
+      "finisher": "Spannungssprung"
+    }
+  },
+  "figur-11": {
+    "focus": "normal",
+    "moves": {
+      "normal": "Schildstoß",
+      "rush": "Feldlauf",
+      "sweep": "Tiefkante",
+      "air": "Schildfall",
+      "finisher": "Feldbruch"
+    }
+  },
+  "figur-12": {
+    "focus": "air",
+    "moves": {
+      "normal": "Bandstoß",
+      "rush": "Anlaufbogen",
+      "sweep": "Tiefschleife",
+      "air": "Bandtritt",
+      "finisher": "Sprungschleife"
+    }
+  },
+  "figur-13": {
+    "focus": "rush",
+    "moves": {
+      "normal": "Windstoß",
+      "rush": "Zugspitze",
+      "sweep": "Bodenwirbel",
+      "air": "Windtritt",
+      "finisher": "Schnellzug"
+    }
+  },
+  "figur-14": {
+    "focus": "rush",
+    "moves": {
+      "normal": "Sternstoß",
+      "rush": "Kometenschub",
+      "sweep": "Staubbahn",
+      "air": "Schweiftritt",
+      "finisher": "Sternschnuppe"
+    }
+  },
+  "figur-15": {
+    "focus": "air",
+    "moves": {
+      "normal": "Funkenstoß",
+      "rush": "Flugstart",
+      "sweep": "Schleifspur",
+      "air": "Nachglühen",
+      "finisher": "Funkenregen"
+    }
+  },
+  "figur-16": {
+    "focus": "normal",
+    "moves": {
+      "normal": "Messstoß",
+      "rush": "Sichtlinie",
+      "sweep": "Nahkante",
+      "air": "Blicksprung",
+      "finisher": "Perspektivwechsel"
+    }
+  },
+  "figur-17": {
+    "focus": "sweep",
+    "moves": {
+      "normal": "Standstoß",
+      "rush": "Gegenschub",
+      "sweep": "Standfeger",
+      "air": "Gewichtswechsel",
+      "finisher": "Bodenanker"
+    }
+  },
+  "figur-18": {
+    "focus": "sweep",
+    "moves": {
+      "normal": "Wellenstoß",
+      "rush": "Vorwelle",
+      "sweep": "Bodensog",
+      "air": "Kammtritt",
+      "finisher": "Brandung"
+    }
+  },
+  "figur-19": {
+    "focus": "sweep",
+    "moves": {
+      "normal": "Pulsstoß",
+      "rush": "Ringlauf",
+      "sweep": "Tiefring",
+      "air": "Luftring",
+      "finisher": "Pulskette"
+    }
+  },
+  "figur-20": {
+    "focus": "rush",
+    "moves": {
+      "normal": "Gitterstoß",
+      "rush": "Schienenlauf",
+      "sweep": "Flachblitz",
+      "air": "Luftblitz",
+      "finisher": "Gitterbruch"
+    }
+  },
+  "figur-21": {
+    "focus": "normal",
+    "moves": {
+      "normal": "Kantenstoß",
+      "rush": "Randlauf",
+      "sweep": "Fußangel",
+      "air": "Randbogen",
+      "finisher": "Eckwechsel"
+    }
+  },
+  "figur-22": {
+    "focus": "air",
+    "moves": {
+      "normal": "Funkstoß",
+      "rush": "Signallauf",
+      "sweep": "Tieffrequenz",
+      "air": "Luftsignal",
+      "finisher": "Funkfeuer"
+    }
+  },
+  "figur-23": {
+    "focus": "sweep",
+    "moves": {
+      "normal": "Waagstoß",
+      "rush": "Ausgleichsschub",
+      "sweep": "Tiefstand",
+      "air": "Gegengewicht",
+      "finisher": "Gleichschlag"
+    }
+  },
+  "figur-24": {
+    "focus": "normal",
+    "moves": {
+      "normal": "Klickstoß",
+      "rush": "Klicklauf",
+      "sweep": "Tiefklick",
+      "air": "Klicksprung",
+      "finisher": "Doppelklick"
+    }
+  },
+  "haidenthaler": {
+    "focus": "normal",
+    "moves": {
+      "normal": "Zeigestock",
+      "rush": "Turnschritt",
+      "sweep": "Wackelfeger",
+      "air": "Stolperflug",
+      "finisher": "Fast wie geplant"
+    }
+  },
+  "grimmer": {
+    "focus": "sweep",
+    "moves": {
+      "normal": "Buchstütze",
+      "rush": "Regallauf",
+      "sweep": "Bodenseite",
+      "air": "Lesezeichen",
+      "finisher": "Bücherstapel"
+    }
+  }
+}
