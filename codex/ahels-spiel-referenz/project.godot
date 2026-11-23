@@ -2,7 +2,7 @@ config_version=5
 
 [application]
 config/name="AHELS Arena"
-config/version="5.5"
+config/version="5.6"
 run/main_scene="res://Main.tscn"
 config/features=PackedStringArray("4.6", "GL Compatibility")
 config/icon="res://assets/icon.png"

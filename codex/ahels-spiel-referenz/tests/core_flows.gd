@@ -174,6 +174,45 @@ func run() -> void:
 	check(app.bout.winner == 0, "Zeitablauf findet besten Wert über vier Spieler")
 	press("Zum Hauptmenü")
 	press("Versus")
+	choose("Kampfart", 2)
+	press("Runde starten")
+	var team_bout := app.bout
+	check(team_bout.team_partner == 2 and app.view.match_context == "2 GEGEN 2", "Teamwahl P1 und P3 im lokalen Menü")
+	check(team_bout.fighters[0].p.x < team_bout.fighters[2].p.x
+		and team_bout.fighters[2].p.x < team_bout.fighters[1].p.x, "Teams starten nebeneinander")
+	team_bout.fighters[0].p = Vector2(600, 535)
+	team_bout.fighters[2].p = Vector2(626, 535)
+	team_bout.fighters[1].p = Vector2(650, 535)
+	team_bout.fighters[3].p = Vector2(900, 535)
+	team_bout.resolve_openers_and_finisher(0, "normal")
+	check(team_bout.fighters[2].balance == 0.0 and team_bout.fighters[1].balance > 0.0, "Nahkampf trifft nur Gegner")
+	team_bout.fighters[1].balance = 0.0
+	team_bout.fighters[1].invulnerable = 0.0
+	team_bout.shots.append(ArenaBout.Shot.new(Vector2(627, 502), Vector2.ZERO, 0, 1.0, 10.0, Color.WHITE))
+	team_bout.update_shots(0.0)
+	check(team_bout.fighters[2].balance == 0.0 and team_bout.fighters[1].balance > 0.0,
+		"Projektil fliegt durch den Partner bis zum Gegner")
+	for fighter in team_bout.fighters:
+		fighter.balance = 0.0
+	check(team_bout.timer_winner() == ArenaBout.DRAW, "Zeitablauf bei Gleichstand beider Teams")
+	team_bout.fighters[2].balance = 5.0
+	check(team_bout.timer_winner() == 1, "Bei gleichen Versuchen entscheidet der Team-Rückstoß")
+	team_bout.fighters[0].stocks = 2
+	check(team_bout.timer_winner() == 0, "Die Summe der Team-Versuche hat Vorrang")
+	team_bout.fighters[0].stocks = 1
+	team_bout.starts_in = 0.0
+	for slot in [0, 1]:
+		team_bout.fighters[slot].p.y = 800.0
+	app._physics_process(1.0 / 60.0)
+	check(team_bout.winner == ArenaBout.ONGOING, "Je ein Teammitglied darf weiterspielen")
+	team_bout.fighters[3].p.y = 800.0
+	app._physics_process(1.0 / 60.0)
+	check(team_bout.winner == 0, "P3 sichert den Sieg für Team Blau")
+	press("Noch eine Runde")
+	check(app.bout.team_partner == 2, "Teamaufteilung bleibt in der Revanche")
+	app.show_pause()
+	press("Zum Hauptmenü")
+	press("Versus")
 	press("Modus: 4 am PC")
 	press("Regeln")
 	choose("Versuche", 4)

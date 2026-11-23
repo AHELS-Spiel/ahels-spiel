@@ -112,12 +112,14 @@ var spotlight_serial := 0
 var spotlight_fighter := -1
 var spotlight_queue: Array[int] = []
 var difficulty := 1
+var team_partner := 0
+var team_order := PackedInt32Array([0, 1, 2, 3])
 var rng := RandomNumberGenerator.new()
 
 
 func _init(catalog: ArenaCatalog, arena: int, one: int, two: int, game_mode: String,
 		bot_level: int = 1, stocks: int = DEFAULT_STOCKS, seconds: float = MAX_SECONDS,
-		extras := PackedInt32Array()) -> void:
+		extras := PackedInt32Array(), partner: int = 0) -> void:
 	stage_index = arena
 	max_stocks = clampi(stocks, 1, 5)
 	time_limit = maxf(seconds, 0.0)
@@ -129,6 +131,13 @@ func _init(catalog: ArenaCatalog, arena: int, one: int, two: int, game_mode: Str
 		fighters.append(Fighter.new(two, catalog.fighters[two]))
 		for id in extras:
 			fighters.append(Fighter.new(id, catalog.fighters[id]))
+	if fighters.size() == 4:
+		team_partner = clampi(partner, 0, 3)
+	if team_partner > 0:
+		team_order = PackedInt32Array([0, team_partner])
+		for slot in range(1, fighters.size()):
+			if slot != team_partner:
+				team_order.append(slot)
 	if mode == "training" or mode == "practice":
 		starts_in = 0.0
 	for i in fighters.size():
@@ -145,7 +154,9 @@ func reset_position(index: int, show_flash: bool = true) -> void:
 	var fighter := fighters[index]
 	var ground: Rect2 = stage["surfaces"][0]
 	var spawn: float
-	if index < 2:
+	if team_partner > 0:
+		spawn = lerpf(float(stage["spawns"][0]), float(stage["spawns"][1]), float(team_order.find(index)) / 3.0)
+	elif index < 2:
 		spawn = float(stage["spawns"][index])
 	else:
 		spawn = lerpf(float(stage["spawns"][0]), float(stage["spawns"][1]),
@@ -503,10 +514,18 @@ func in_reach(f: Fighter, target: Vector2, reach: float, vertical: float, forwar
 	return absf(gap.x) <= reach and absf(gap.y) <= vertical and (not forward or gap.x * f.facing >= -20.0)
 
 
+static func side_for(slot: int, partner: int) -> int:
+	if partner == 0:
+		return slot
+	return 0 if slot == 0 or slot == partner else 1
+
+
 func hit(target_index: int, power: float, side: int, tint: Color, push_scale: float = 1.0,
 		lift_scale: float = 1.0, attacker: int = -1) -> bool:
 	var f := fighters[target_index]
 	if f.invulnerable > 0.0 or f.stocks <= 0:
+		return false
+	if attacker >= 0 and side_for(attacker, team_partner) == side_for(target_index, team_partner):
 		return false
 	if f.shield > 0.0:
 		f.shield = 0.0
@@ -545,7 +564,7 @@ func update_shots(delta: float) -> void:
 		var distance := INF
 		for slot in fighters.size():
 			var target := fighters[slot]
-			if slot == shot.owner or target.stocks <= 0:
+			if side_for(slot, team_partner) == side_for(shot.owner, team_partner) or target.stocks <= 0:
 				continue
 			var diff := shot.p - (target.p - Vector2(0, 33))
 			var hit_target := absf(diff.x) < (39.0 if shot.low else 34.0) and absf(diff.y) < (28.0 if shot.low else 39.0)
@@ -684,10 +703,14 @@ func check_end() -> void:
 		flash(fighters[1].p - Vector2(0, 42), Color("#ffcf9b"), "out")
 	var remaining := 0
 	var last := DRAW
+	var active_sides := 0
 	for i in fighters.size():
 		if fighters[i].stocks > 0:
-			remaining += 1
-			last = i
+			var side := side_for(i, team_partner)
+			if (active_sides & (1 << side)) == 0:
+				remaining += 1
+				last = side
+				active_sides |= 1 << side
 	if remaining <= 1:
 		winner = last
 	elif time_limit > 0.0 and time >= time_limit:
@@ -697,18 +720,27 @@ func check_end() -> void:
 
 
 func timer_winner() -> int:
+	var stock_totals := PackedInt32Array([0, 0, 0, 0])
+	var balance_totals := PackedFloat64Array([0.0, 0.0, 0.0, 0.0])
+	for i in fighters.size():
+		var f := fighters[i]
+		if f.stocks > 0:
+			var side := side_for(i, team_partner)
+			stock_totals[side] += f.stocks
+			balance_totals[side] += f.balance
 	var best_stocks := 0
 	var best_balance := INF
 	var leader := DRAW
-	for i in fighters.size():
-		var f := fighters[i]
-		if f.stocks <= 0 or f.stocks < best_stocks:
+	for side in stock_totals.size():
+		var stocks := stock_totals[side]
+		var balance := balance_totals[side]
+		if stocks <= 0 or stocks < best_stocks:
 			continue
-		if f.stocks > best_stocks or (f.balance < best_balance and not is_equal_approx(f.balance, best_balance)):
-			best_stocks = f.stocks
-			best_balance = f.balance
-			leader = i
-		elif is_equal_approx(f.balance, best_balance):
+		if stocks > best_stocks or (balance < best_balance and not is_equal_approx(balance, best_balance)):
+			best_stocks = stocks
+			best_balance = balance
+			leader = side
+		elif is_equal_approx(balance, best_balance):
 			leader = DRAW
 	return leader
 

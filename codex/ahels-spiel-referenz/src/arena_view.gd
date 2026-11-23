@@ -11,6 +11,8 @@ const SOFT := Color("#d5d9df")
 const MINT := Color("#9ee9ce")
 const PEACH := Color("#ffad94")
 const PLAYER_COLORS: Array[Color] = [MINT, PEACH, Color("#a1c9ff"), Color("#f1dd86")]
+const TEAM_COLORS: Array[Color] = [Color("#8bc3ff"), Color("#ffb477")]
+const TEAM_NAMES := ["Blau", "Orange"]
 const PLATFORM_COLORS: Array[Color] = [
 	Color("#283a4f"), Color("#253746"), Color("#253048"), Color("#433145"),
 	Color("#283d3b"), Color("#473952"), Color("#45273f"), Color("#263d4f"),
@@ -180,7 +182,7 @@ func draw_platform(surface: Rect2, accent: Color, stage: int) -> void:
 func draw_fighter(f: ArenaBout.Fighter, position: Vector2, index: int) -> void:
 	var p := position.round()
 	var accent: Color = f.profile["accent"]
-	var player_color := PLAYER_COLORS[index]
+	var player_color := slot_color(index)
 	var large := 1.22 if f.id == ArenaCatalog.BOSS else 1.0
 	var size := ArenaCatalog.SPRITE_SIZE * 1.32 * large
 	var foot := Rect2(p.x - size.x * 0.53, p.y - size.y * 0.925, size.x, size.y)
@@ -393,10 +395,16 @@ func draw_voice_prompt() -> void:
 		HORIZONTAL_ALIGNMENT_LEFT, 262, 14, PAPER)
 
 
+func slot_color(index: int) -> Color:
+	if bout.team_partner > 0:
+		return TEAM_COLORS[ArenaBout.side_for(index, bout.team_partner)]
+	return PLAYER_COLORS[index]
+
+
 func draw_compact_status(index: int) -> void:
 	var f := bout.fighters[index]
-	var x: float = [16.0, 242.0, 814.0, 1040.0][index]
-	var color := PLAYER_COLORS[index]
+	var x: float = [16.0, 242.0, 814.0, 1040.0][bout.team_order.find(index)]
+	var color := slot_color(index)
 	var text_color := PAPER if f.stocks > 0 else SOFT
 	var name := String(f.profile["name"])
 	if f.id in [5, 7, 15, 16]:
@@ -406,6 +414,8 @@ func draw_compact_status(index: int) -> void:
 	draw_texture_rect(catalog.portraits[f.id], Rect2(x + 7, 21, 45, 53), false,
 		Color.WHITE if f.stocks > 0 else Color("#898f9e"))
 	var slot := "P%d" % (index + 1)
+	if bout.team_partner > 0:
+		slot += " · " + String(TEAM_NAMES[ArenaBout.side_for(index, bout.team_partner)]).to_upper()
 	if index == local_slot:
 		slot += " · DU"
 	draw_string(BOLD, Vector2(x + 62, 32), slot, HORIZONTAL_ALIGNMENT_LEFT, 150, 12, color)

@@ -2,11 +2,11 @@ class_name DuelLink
 extends Node
 
 signal lobby_updated
-signal match_started(stage_index: int, lineup: PackedInt32Array)
+signal match_started(stage_index: int, lineup: PackedInt32Array, partner: int)
 signal state_received(state: Dictionary)
 signal connection_lost(message: String)
 
-const VERSION := 6
+const VERSION := 7
 const DEFAULT_PORT := 24738
 const MAX_PLAYERS := 4
 const WAIT_SECONDS := 12.0
@@ -18,6 +18,7 @@ var preview_fighters := PackedInt32Array()
 var ready_sent := false
 var hosting := false
 var capacity := 2
+var team_partner := 0
 var local_fighter := 0
 var local_slot := 1
 var seats: Array[int] = []
@@ -47,10 +48,11 @@ func _process(delta: float) -> void:
 		on_failure()
 
 
-func listen(port: int, fighter: int, player_count: int = 2) -> Error:
+func listen(port: int, fighter: int, player_count: int = 2, partner: int = 0) -> Error:
 	close()
 	local_fighter = fighter
 	capacity = clampi(player_count, 2, MAX_PLAYERS)
+	team_partner = clampi(partner, 0, 3) if capacity == 4 else 0
 	var socket := ENetMultiplayerPeer.new()
 	var error := socket.create_server(port, capacity - 1, 3)
 	if error != OK:
@@ -88,6 +90,7 @@ func close() -> void:
 	waiting = 0.0
 	phase = "GETRENNT"
 	preview_fighters.clear()
+	team_partner = 0
 	ready_sent = false
 	round_id = 0
 	round_active = false
@@ -199,6 +202,12 @@ func choose_arena(index: int) -> void:
 			send_preview()
 
 
+func choose_team_partner(partner: int) -> void:
+	if hosting and not round_active and capacity == 4:
+		team_partner = clampi(partner, 0, 3)
+		send_preview()
+
+
 func send_preview(serial: int = 0) -> void:
 	var lineup := PackedInt32Array([local_fighter])
 	var registered: Array[int] = []
@@ -211,7 +220,8 @@ func send_preview(serial: int = 0) -> void:
 	phase = "BEREIT" if can_start() else "WARTET"
 	for i in registered.size():
 		if guest_connected(registered[i]):
-			open_round.rpc_id(registered[i], serial, arena_ids[preview_arena], lineup, Vector2i(i + 1, capacity))
+			open_round.rpc_id(registered[i], serial, arena_ids[preview_arena], lineup,
+				Vector3i(i + 1, capacity, team_partner))
 	lobby_updated.emit()
 
 
@@ -242,14 +252,17 @@ func start_round(stage_index: int) -> void:
 	preview_fighters = lineup
 	for i in seats.size():
 		if guest_connected(seats[i]):
-			open_round.rpc_id(seats[i], round_id, arena_ids[stage_index], lineup, Vector2i(i + 1, capacity))
-	match_started.emit(stage_index, lineup)
+			open_round.rpc_id(seats[i], round_id, arena_ids[stage_index], lineup,
+				Vector3i(i + 1, capacity, team_partner))
+	match_started.emit(stage_index, lineup, team_partner)
 
 
 @rpc("authority", "call_remote", "reliable")
-func open_round(serial: int, arena_id: String, lineup: PackedInt32Array, settings: Vector2i) -> void:
+func open_round(serial: int, arena_id: String, lineup: PackedInt32Array, settings: Vector3i) -> void:
 	var stage_index := arena_ids.find(arena_id)
 	if hosting or not valid_arena(stage_index) or settings.y < 2 or settings.y > MAX_PLAYERS:
+		return
+	if settings.z < 0 or settings.z > 3 or (settings.z != 0 and settings.y != 4):
 		return
 	if lineup.size() > settings.y or settings.x < 1 or settings.x >= lineup.size() or lineup[settings.x] != local_fighter:
 		return
@@ -261,6 +274,7 @@ func open_round(serial: int, arena_id: String, lineup: PackedInt32Array, setting
 	if serial == 0 and round_active:
 		return
 	capacity = settings.y
+	team_partner = settings.z
 	local_slot = settings.x
 	preview_arena = stage_index
 	preview_fighters = lineup
@@ -280,7 +294,7 @@ func open_round(serial: int, arena_id: String, lineup: PackedInt32Array, setting
 		round_active = true
 		ready_sent = false
 		phase = "SPIEL LÄUFT"
-		match_started.emit(stage_index, lineup)
+		match_started.emit(stage_index, lineup, team_partner)
 
 
 func valid_arena(stage_index: int) -> bool:

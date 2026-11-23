@@ -1,5 +1,5 @@
 extends SceneTree
-## Run separate processes: -- host|guest|host4|guest4-1|guest4-2|guest4-3|no_host|old_host [udp_port]
+## Run separate processes for host/guest, host4/guest4-N or host4teams/guest4teams-N.
 
 var app: ArenaApp
 var role: String
@@ -25,10 +25,10 @@ func run() -> void:
 		passed = await play_host()
 	elif role == "guest":
 		passed = await play_guest()
-	elif role == "host4":
-		passed = await play_group_host()
-	elif role.begins_with("guest4-"):
-		passed = await play_group_guest(int(role.get_slice("-", 1)))
+	elif role in ["host4", "host4teams"]:
+		passed = await play_group_host(3 if role == "host4teams" else 0)
+	elif role.begins_with("guest4"):
+		passed = await play_group_guest(int(role.get_slice("-", 1)), 3 if role.begins_with("guest4teams") else 0)
 	else:
 		passed = await check_join_error()
 	app.link.close()
@@ -138,7 +138,7 @@ func check_join_error() -> bool:
 	return true
 
 
-func play_group_host() -> bool:
+func play_group_host(partner: int) -> bool:
 	app.host_size_picker.select(2)
 	app.host_size_picker.item_selected.emit(2)
 	app.port_box.text = str(port)
@@ -146,12 +146,21 @@ func play_group_host() -> bool:
 	if not await wait_until(app.link.can_start) or app.link.preview_fighters.size() != 4:
 		push_error("Vier Personen wurden nicht startbereit.")
 		return false
+	app.host_format_picker.select(partner)
+	app.host_format_picker.item_selected.emit(partner)
+	await create_timer(0.25).timeout
 	press("Runde starten")
+	if app.bout.team_partner != partner:
+		push_error("Die Kampfart des Hosts wurde nicht gesetzt.")
+		return false
+	var attacked: Array[bool] = [false, false, false]
+	var moved: Array[bool] = [false, false, false]
 	if not await wait_until(func() -> bool:
 		for slot in range(1, 4):
-			if app.bout.fighters[slot].attack_kind.is_empty() or absf(app.bout.fighters[slot].v.x) < 30.0:
-				return false
-		return true
+			var fighter := app.bout.fighters[slot]
+			attacked[slot - 1] = attacked[slot - 1] or not fighter.attack_kind.is_empty()
+			moved[slot - 1] = moved[slot - 1] or absf(fighter.v.x) >= 30.0
+		return false not in attacked and false not in moved
 	):
 		push_error("Unabhängige Eingaben der drei Gäste fehlen.")
 		return false
@@ -161,11 +170,11 @@ func play_group_host() -> bool:
 	if not await wait_until(func() -> bool: return app.outcome_shown and app.link.can_start()):
 		push_error("Ergebnis oder Bereitschaft der drei Gäste fehlt.")
 		return false
-	if app.bout.winner != 3:
+	if app.bout.winner != (3 if partner == 0 else 0):
 		push_error("P4 muss nach den drei Ring-outs gewinnen.")
 		return false
 	press("Revanche starten")
-	if app.link.round_id != 2 or app.bout.fighters.size() != 4:
+	if app.link.round_id != 2 or app.bout.fighters.size() != 4 or app.bout.team_partner != partner:
 		push_error("Revanche mit vier Personen fehlt.")
 		return false
 	if not await wait_until(func() -> bool: return app.screen == "network" and app.link.seats.size() == 2):
@@ -179,31 +188,49 @@ func play_group_host() -> bool:
 	return true
 
 
-func play_group_guest(guest_number: int) -> bool:
+func play_group_guest(guest_number: int, partner: int) -> bool:
 	app.selected.x = 7 + guest_number
 	app.address_box.text = "127.0.0.1"
 	app.port_box.text = str(port)
 	press("Verbinden")
+	if not await wait_until(func() -> bool:
+		return app.link.preview_fighters.size() == 4 and app.link.team_partner == partner
+	):
+		push_error("Gast erhält die Kampfart der Lobby nicht.")
+		return false
 	if not await wait_until(func() -> bool: return app.bout != null and app.bout.starts_in == 0.0):
 		push_error("Start für den Gast fehlt.")
 		return false
 	var slot := app.link.local_slot
-	if app.bout.fighters.size() != 4 or app.bout.fighters[slot].id != app.selected.x or app.view.local_slot != slot:
+	var correct_slot := (
+		app.bout.fighters.size() == 4 and app.bout.fighters[slot].id == app.selected.x and app.view.local_slot == slot
+	)
+	if not correct_slot or app.bout.team_partner != partner:
 		push_error("Gast bekommt den falschen Platz.")
 		return false
 	app.set_physics_process(false)
 	var direction := ArenaBout.LEFT if slot % 2 == 1 else ArenaBout.RIGHT
-	app.link.send_controls(direction, ArenaBout.ATTACK)
+	var input_until := Time.get_ticks_msec() + 650
+	var next_attack := 0
 	while app.bout.winner == ArenaBout.ONGOING and Time.get_ticks_msec() < deadline:
-		app.link.send_controls(direction, 0)
+		var now := Time.get_ticks_msec()
+		var attack := 0
+		if now < input_until and now >= next_attack:
+			attack = ArenaBout.ATTACK
+			next_attack = now + 150
+		app.link.send_controls(direction if now < input_until else 0, attack)
 		await physics_frame
 	app.set_physics_process(true)
-	if not await wait_until(func() -> bool: return app.outcome_shown and app.bout.winner == 3):
+	var expected_winner := 3 if partner == 0 else 0
+	if not await wait_until(func() -> bool: return app.outcome_shown and app.bout.winner == expected_winner):
 		push_error("Gast sieht das falsche Ergebnis.")
 		return false
 	press("Für Revanche bereit")
 	if not await wait_until(func() -> bool: return app.link.round_id == 2):
 		push_error("Gast erhält keine Revanche.")
+		return false
+	if app.bout.team_partner != partner:
+		push_error("Gast verliert die Teamaufteilung in der Revanche.")
 		return false
 	if guest_number == 3:
 		await create_timer(0.35).timeout
