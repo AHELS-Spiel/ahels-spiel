@@ -97,6 +97,8 @@ var music: AudioStreamPlayer
 var voice: AudioStreamPlayer
 var fighter_voices: Dictionary[int, Array] = {}
 var voice_clips: Dictionary[String, VoiceClip] = {}
+var tutorial_voices: Dictionary[int, VoiceClip] = {}
+var spoken_tutorial_step := -1
 var next_voice_clip: Dictionary = {}
 var ambient_voices: Array[VoiceClip] = []
 var next_ambient_voice := 0
@@ -265,7 +267,11 @@ func make_audio() -> void:
 				ambient_voices.append(clip)
 		if not clips.is_empty():
 			fighter_voices[id] = clips
-	if not voice_clips.is_empty():
+	for step in ArenaView.FAKE_LINES.size():
+		var stream := load_voice_stream("tutorial-%02d.ogg" % (step + 1))
+		if stream != null:
+			tutorial_voices[step] = VoiceClip.new(ArenaCatalog.TUTOR, stream)
+	if not voice_clips.is_empty() or not tutorial_voices.is_empty():
 		voice = AudioStreamPlayer.new()
 		add_child(voice)
 		voice.finished.connect(apply_music_level)
@@ -437,10 +443,24 @@ func play_bout_audio() -> void:
 			if not voice_is_playing():
 				view.show_spotlight(id, 1.8)
 	bout.spotlight_queue.clear()
-	if not paused and voices_enabled and not muted and not voice_clips.is_empty():
-		pending_knockouts.append_array(bout.knockout_queue)
-		play_automatic_voice(activity, featured)
+	if not paused and voices_enabled and not muted:
+		if bout.mode == "training" and tutorial_voices.has(bout.tutorial_step):
+			play_tutorial_voice()
+		elif not voice_clips.is_empty():
+			pending_knockouts.append_array(bout.knockout_queue)
+			play_automatic_voice(activity, featured)
 	bout.knockout_queue.clear()
+
+
+func play_tutorial_voice() -> void:
+	var step := bout.tutorial_step
+	if spoken_tutorial_step == step:
+		return
+	var clip: VoiceClip = tutorial_voices.get(step)
+	if play_voice(clip) > 0.0:
+		spoken_tutorial_step = step
+		pending_knockouts.clear()
+		knockout_playing = false
 
 
 func play_automatic_voice(activity: bool, featured: int) -> void:
@@ -1474,11 +1494,15 @@ func begin_bout(arena: int, one: int, two: int, mode: String, difficulty: int = 
 	paused = false
 	outcome_shown = false
 	heard_lesson = false
+	spoken_tutorial_step = -1
 	previous_keys = Vector2i(poll_controls(0), poll_controls(1))
 	frame_serial = 0
 	make_ui()
 	change_music("finale" if mode == "boss" else "arena")
-	play_bout_voice(voice_clips.get(VOICE_GREETING), "Servas!")
+	if mode == "training" and tutorial_voices.has(0):
+		play_tutorial_voice()
+	else:
+		play_bout_voice(voice_clips.get(VOICE_GREETING), "Servas!")
 
 
 func show_tutorial_finish() -> void:
@@ -1497,6 +1521,10 @@ func show_tutorial_finish() -> void:
 
 
 func show_pause() -> void:
+	if bout.mode == "training" and tutorial_voices.has(bout.tutorial_step) and voice_is_playing():
+		var clip: VoiceClip = tutorial_voices[bout.tutorial_step]
+		if voice.stream == clip.stream:
+			spoken_tutorial_step = -1
 	stop_class_voice()
 	view.spotlight_id = -1
 	pause_page = ""

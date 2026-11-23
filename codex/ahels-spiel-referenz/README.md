@@ -37,7 +37,7 @@ Die Musik wechselt bei einem knappen Duell mit letzten Versuchen oder ablaufende
 
 ### Klassenstimmen
 
-Mit Sprachdateien startet jede Runde mit „Servas!“, auch Tutorial, Training und Netzwerk. Wenn jemand einen Versuch verliert, kommt Stefans Knockout-Satz. Bei Lukas (Figur 11) kommt sein undeutlicher Einwurf, ersatzweise Stefan. Auch Trainingsstürze lösen eine Reaktion aus. Weitere Einwürfe wechseln bei Treffern, Spezialaktionen und zwischen Aktionen. Lukas reagiert auch auf Blocks und Valentin auf Projektiltreffer.
+Mit Sprachdateien startet jede Runde mit „Servas!“, auch Tutorial ohne Tutorialstimme, Training und Netzwerk. Wenn jemand einen Versuch verliert, kommt Stefans Knockout-Satz. Bei Lukas (Figur 11) kommt sein undeutlicher Einwurf, ersatzweise Stefan. Auch Trainingsstürze lösen eine Reaktion aus. Weitere Einwürfe wechseln bei Treffern, Spezialaktionen und zwischen Aktionen. Lukas reagiert auch auf Blocks und Valentin auf Projektiltreffer.
 
 Mit **F3** spielt ihr im Kampf die Stimme der eigenen Figur ab, sofern sie eine Aufnahme hat. Sonst spielt die Stimme des Gegenübers, wenn eine verfügbar ist. Bei zwei verschiedenen Stimmen spielt **F4** die zweite. Mehrmaliges Drücken spielt die Ausschnitte der zugehörigen Figur der Reihe nach ab. Die Tasten stehen im Kampf unten links. Belegte Tasten werden für vorhandene Steuerungseinstellungen übersprungen. Die Einstellung **Klassenstimmen** gilt für automatische Einwürfe, Stimmtasten und Hörproben.
 
@@ -75,6 +75,8 @@ Im LAN verwendet ihr die im Menü angezeigte Host-Adresse und denselben UDP-Port
 `python art/make_assets.py` erzeugt die Pixelbilder und Soundeffekte mit Python und Pillow. `python art/soundtrack.py` rendert die vier Instrumentaltracks mit NumPy und FFmpeg. Die beiden Felix- und Jonas-Figuren sind an der Figurennummer erkennbar.
 
 Die optionalen Klassensprachclips lädt das Spiel aus `assets/class_voice/`. Die Dateinamen stehen in `src/catalog.gd`. Das Verzeichnis ist in Git ignoriert. Das Projekt startet auch ohne diese Dateien.
+
+Für die optionale synthetische Vertonung des Turnsaal-Tutorials liegen die sechs Clips als `tutorial-01.ogg` bis `tutorial-06.ogg` im selben Ordner. Sie folgen der Reihenfolge der Sprechblasen vom Laufen bis zum Abschluss. Die Einstellung **Klassenstimmen** gilt auch hier.
 
 Nach `godot --headless --editor --import` lassen sich die Tests aus dem Projektordner ausführen. Verwendet pro Test ein frisches Profil.
 
