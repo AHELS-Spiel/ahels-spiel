@@ -1,4 +1,4 @@
-# AHELS Arena V5
+# AHELS Arena V5.1
 
 Ein Pixel-Plattform-Fighter mit 24 Klassenfiguren und zwei Lehrern. Treffer erhöhen den Rückstoß. Wer über den Rand fällt, verliert einen Versuch.
 
@@ -14,6 +14,7 @@ Die macOS-App ist ad hoc signiert. Je nach Sicherheitseinstellung braucht sie be
 
 ## Modi
 
+- **Klassenduelle.** Spielt gegen Stefan in der Aula, Lukas in der Werkstatt oder Valentin im Computerraum. Auf den Duellkarten könnt ihr ihre Stimme anhören, wenn die Ausgabe die Aufnahme enthält. Im Kampf reagieren die Einwürfe auf den Ring-out von Stefan, den Block von Lukas und den Projektiltreffer von Valentin.
 - **Solo-Kampagne.** Herr Haidenthaler erklärt im Turnsaal alles auf seine Weise. Die Tafel zeigt die richtigen Tasten. Danach folgen Pausenhof, Computerraum, Aula und das Finale gegen Herrn Grimmer. Springt über die Regalwelle, weicht den sichtbaren Kreidelinien aus und nutzt die Pause zum Kontern.
 - **Tutorial.** Die fünf Übungen aus dem Turnsaal sind auch direkt vom Hauptmenü aus erreichbar.
 - **Versus.** Spielt zu zweit am PC oder gegen die CPU. Wählt Figuren, Arena und auf Wunsch unter **Regeln** ein bis fünf Versuche, das Zeitlimit und die CPU-Stufe. Bei Zeitablauf zählen die verbleibenden Versuche, dann der niedrigere Rückstoßwert. Eine Revanche übernimmt dieselbe Arena und dieselben Regeln.
@@ -49,7 +50,7 @@ Die Musik wechselt bei einem knappen Duell mit letzten Versuchen oder ablaufende
 
 ### Netzwerk einrichten
 
-Im LAN verwendet ihr die im Menü angezeigte Host-Adresse und denselben UDP-Port. Der Standardport ist **24738/UDP**. Über das Internet benötigt der Host eine erreichbare IP-Adresse oder einen DNS-Namen und gegebenenfalls eine UDP-Portweiterleitung. Alternativ geht ein gemeinsames virtuelles Netzwerk. Beide Instanzen brauchen V5. In der Netzwerkpause läuft die Runde für das Gegenüber weiter.
+Im LAN verwendet ihr die im Menü angezeigte Host-Adresse und denselben UDP-Port. Der Standardport ist **24738/UDP**. Über das Internet benötigt der Host eine erreichbare IP-Adresse oder einen DNS-Namen und gegebenenfalls eine UDP-Portweiterleitung. Alternativ geht ein gemeinsames virtuelles Netzwerk. Verwendet V5 oder V5.1 auf beiden PCs. In der Netzwerkpause läuft die Runde für das Gegenüber weiter.
 
 ## Entwickeln und exportieren
 
@@ -72,6 +73,7 @@ Nach `godot --headless --editor --import` lassen sich die Tests aus dem Projekto
 ```sh
 XDG_DATA_HOME="$(mktemp -d)" godot --headless --script res://tests/core_flows.gd
 XDG_DATA_HOME="$(mktemp -d)" godot --headless --script res://tests/combat_moves.gd
+XDG_DATA_HOME="$(mktemp -d)" godot --headless --script res://tests/class_duels.gd
 XDG_DATA_HOME="$(mktemp -d)" godot --headless --script res://tests/playthroughs.gd
 XDG_DATA_HOME="$(mktemp -d)" godot --headless --script res://tests/arena_flows.gd
 XDG_DATA_HOME="$(mktemp -d)" godot --headless --script res://tests/controller_flows.gd

@@ -7,7 +7,26 @@ const BOSS := 25
 const SPRITE_SIZE := Vector2(76, 96)
 const FIELD_SIZE := Vector2(1280, 720)
 
+const CLASS_DUELS := [
+	{
+		"id": "figur-05", "arena": "aula", "event": "ring_out", "callout": "Ring-out",
+		"clip": "stefan.ogg", "voice_note": "Stimme beim Ring-out",
+		"hint": "Stefan sucht den Nahkampf und setzt dort seinen Schallkreis ein.",
+	},
+	{
+		"id": "figur-11", "arena": "werkstatt", "event": "block", "callout": "Angriff abgewehrt",
+		"clip": "lukas-probe.ogg", "voice_note": "Stimme beim Block · Zuordnung vorläufig",
+		"hint": "Lukas wartet auf deinen Angriff und fängt ihn mit seinem Schutzfeld ab.",
+	},
+	{
+		"id": "figur-10", "arena": "computerraum", "event": "projectile", "callout": "Impulslinie trifft",
+		"clip": "valentin.ogg", "voice_note": "Stimme beim Projektiltreffer",
+		"hint": "Valentin sucht Abstand und schickt seine Impulslinie quer durch die Arena.",
+	},
+]
+
 var fighters: Array[Dictionary] = []
+var class_duel_fighters: Array[int] = []
 var arenas: Array[Dictionary] = []
 var sprites: Array[Texture2D] = []
 var portraits: Array[Texture2D] = []
@@ -30,6 +49,13 @@ func _init() -> void:
 		entry["accent"] = Color.from_string(entry["color"], Color.WHITE)
 		arenas.append(entry)
 		backdrops.append(load("res://assets/pixel/%s.png" % entry["id"]) as Texture2D)
+
+	for profile in CLASS_DUELS:
+		for id in fighters.size():
+			if fighters[id]["id"] == profile["id"]:
+				fighters[id]["class_duel"] = profile
+				class_duel_fighters.append(id)
+				break
 
 
 func arena_index(id: String) -> int:

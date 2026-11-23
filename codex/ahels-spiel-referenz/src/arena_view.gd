@@ -42,6 +42,14 @@ var smooth_remote := false
 var reduced_effects := false
 var render_positions: Array[Vector2] = []
 var previous_state: ArenaBout
+var spotlight_id := -1
+var spotlight_until := 0.0
+
+
+func show_spotlight(id: int, seconds: float) -> void:
+	spotlight_id = id
+	spotlight_until = clock + seconds
+
 
 
 func _ready() -> void:
@@ -127,6 +135,8 @@ func draw_match() -> void:
 	for fx in bout.flashes:
 		draw_flash(fx)
 	draw_hud()
+	if spotlight_id >= 0 and clock < spotlight_until:
+		draw_spotlight()
 	if bout.mode == "training":
 		draw_lesson()
 	elif bout.mode == "practice":
@@ -340,6 +350,18 @@ func draw_hud() -> void:
 		draw_string(BOLD, Vector2(x, 39), "ÜBUNGEN", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, SOFT)
 		for n in 5:
 			draw_rect(Rect2(x + 53 * n, y, 42, 6), MINT if n < bout.tutorial_step else Color("#3a4b61"))
+
+
+func draw_spotlight() -> void:
+	var fighter := catalog.fighters[spotlight_id]
+	var profile: Dictionary = fighter["class_duel"]
+	var accent: Color = fighter["accent"]
+	var area := Rect2(478, 116, 324, 47)
+	draw_rect(area, Color("#162036"))
+	draw_rect(Rect2(area.position, Vector2(3, area.size.y)), accent)
+	draw_texture_rect(catalog.portraits[spotlight_id], Rect2(489, 120, 34, 37), false)
+	var caption: String = "%s · %s" % [fighter["name"], profile["callout"]]
+	draw_string(BOLD, Vector2(532, 145), caption, HORIZONTAL_ALIGNMENT_LEFT, 258, 16, PAPER)
 
 
 func draw_status(index: int) -> void:
