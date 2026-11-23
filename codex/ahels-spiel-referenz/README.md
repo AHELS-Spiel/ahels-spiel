@@ -1,4 +1,4 @@
-# AHELS Arena V5.4
+# AHELS Arena V5.6
 
 Ein Pixel-Plattform-Fighter mit 24 Klassenfiguren und zwei Lehrern. Treffer erhöhen den Rückstoß. Wer über den Rand fällt, verliert einen Versuch.
 
@@ -17,12 +17,12 @@ Die macOS-App ist ad hoc signiert. Je nach Sicherheitseinstellung braucht sie be
 - **Klassenduelle.** Spielt gegen Stefan in der Aula, Lukas in der Werkstatt oder Valentin im Computerraum. Auf den Duellkarten könnt ihr die Aufnahmen anhören. Jeder weitere Klick spielt den nächsten Clip der Figur.
 - **Solo-Kampagne.** Herr Haidenthaler erklärt im Turnsaal alles auf seine Weise. Die Tafel zeigt die richtigen Tasten. Danach folgen Pausenhof, Computerraum, Aula und das Finale gegen Herrn Grimmer. Springt über die Regalwelle, weicht den sichtbaren Kreidelinien aus und nutzt die Pause zum Kontern.
 - **Tutorial.** Die fünf Übungen aus dem Turnsaal sind auch direkt vom Hauptmenü aus erreichbar.
-- **Versus.** Spielt zu zweit am PC oder gegen die CPU. Wählt Figuren, Arena und auf Wunsch unter **Regeln** ein bis fünf Versuche, das Zeitlimit und die CPU-Stufe. Bei Zeitablauf zählen die verbleibenden Versuche, dann der niedrigere Rückstoßwert. Eine Revanche übernimmt dieselbe Arena und dieselben Regeln.
+- **Versus.** Wechselt über **Modus** zwischen CPU, **2 am PC** und **4 am PC**. Wählt für jeden Platz eine Figur. Zu viert bietet das Menü **Alle gegen alle** und **2 gegen 2**. Unter **Regeln** könnt ihr Versuche, Zeitlimit und im CPU-Duell die Schwierigkeit einstellen.
 - **Training.** Übt mit einer beliebigen Klassenfigur im Turnsaal gegen ein stehendes, springendes oder CPU-gesteuertes Gegenüber. Im Pausenmenü könnt ihr unter anderem den Rückstoßwert beim nächsten Reset festlegen. **R** setzt die Übung zurück, **F2** ändert das Gegnerverhalten.
 - **Turnier.** Spielt vier Duelle auf einer festen oder ausgelosten Route. Vor jeder Runde seht ihr das Duell und den Fortschritt. Eine Wiederholung behält Arena, Gegner und Schwierigkeit. Es gibt drei Turnierstufen.
 - **Überleben.** Ihr habt drei Versuche für fünf Wellen. Restversuche und Rückstoßwert gehen in die nächste Welle mit. Jede CPU-Figur hat einen Versuch. Euer Bestwert wird auf dem Gerät gespeichert.
 - **Bossprobe.** Nach dem Kampagnensieg könnt ihr das Bibliotheksfinale direkt üben.
-- **Netzwerk.** Wählt eure Figuren vor dem Verbinden. Der Host wählt die Arena und startet. Nach dem Ergebnis kann der Gast Bereitschaft für eine Revanche melden.
+- **Netzwerk.** Wählt eure Figuren vor dem Verbinden. Der Host wählt die Arena und öffnet die Lobby für zwei, drei oder vier Personen. Sobald alle Plätze besetzt sind, kann der Host die Runde starten. Nach dem Ergebnis können die Gäste eine Revanche anfordern.
 - **Ziele.** Zeigt die auf diesem Gerät erreichten Spielziele.
 
 Pausenhof, Computerraum, Bibliothek, Werkstatt, Dachterrasse, Aula und Physiksaal sind Kampfarenen. Versus und Überleben bieten zusätzlich Zufallsauswahl. Freies Training und Tutorial finden im Turnsaal statt.
@@ -43,20 +43,24 @@ Mit **F3** spielt ihr im Kampf die Stimme der eigenen Figur ab, sofern sie eine 
 
 ### Standardsteuerung
 
-| Aktion | Spieler 1 / Netzwerkspieler | Spieler 2 lokal | Controller |
-| --- | --- | --- | --- |
-| Laufen | A / D | ← / → | Linker Stick oder Steuerkreuz |
-| Springen / Doppelsprung | W / Leertaste | ↑ | A |
-| Angreifen | F | J | X |
-| Spezialfähigkeit | G | K | Y |
-| Ausweichen | Q / Umschalt | L | B / RB |
-| Durch obere Plattform fallen | S | ↓ | Stick oder Steuerkreuz ↓ |
+| Aktion | Spieler 1 / Netzwerk | Spieler 2 | Spieler 3 | Spieler 4 (Ziffernblock) | Controller |
+| --- | --- | --- | --- | --- | --- |
+| Laufen | A / D | ← / → | T / U | 4 / 6 | Linker Stick oder Steuerkreuz |
+| Springen / Doppelsprung | W / Leertaste | ↑ | Y | 8 | A |
+| Angreifen | F | J | V | 7 | X |
+| Spezialfähigkeit | G | K | N | 9 | Y |
+| Ausweichen | Q / Umschalt | L | B | 0 | B / RB |
+| Durch obere Plattform fallen | S | ↓ | M | 5 | Stick oder Steuerkreuz ↓ |
 
-**Esc** oder **Start** öffnet Pause. In Menüs bestätigt ihr mit Enter oder A und geht mit Esc oder B zurück. **F11** schaltet Vollbild um. In **Einstellungen** findet ihr getrennte Lautstärkeregler, Stummschaltung, reduzierte Effekte und die Steuerungsübersicht. Dort könnt ihr beide Tastaturlayouts ändern oder zurücksetzen. Die Tutorial-Tafel verwendet die aktiven Tasten. Einstellungen und Spielfortschritt werden beim Spielen gespeichert.
+**Esc** oder **Start** öffnet Pause. In Menüs bestätigt ihr mit Enter oder A und geht mit Esc oder B zurück. **F11** schaltet Vollbild um. Unter **Einstellungen → Steuerungsübersicht** könnt ihr die Tastaturlayouts aller vier Plätze ändern. Verbundene Controller belegen die Plätze der Reihe nach. Alle Einstellungen und der Spielfortschritt werden gespeichert.
 
 ### Netzwerk einrichten
 
-Im LAN verwendet ihr die im Menü angezeigte Host-Adresse und denselben UDP-Port. Der Standardport ist **24738/UDP**. Über das Internet benötigt der Host eine erreichbare IP-Adresse oder einen DNS-Namen und gegebenenfalls eine UDP-Portweiterleitung. Alternativ geht ein gemeinsames virtuelles Netzwerk. Für Netzwerkduelle sind V5 bis V5.4 kompatibel. Die Klassenstimmen werden lokal aus den Dateien des jeweiligen PCs abgespielt. In der Netzwerkpause läuft die Runde für das Gegenüber weiter.
+Installiert für Netzwerkduelle auf jedem Rechner **V5.6**. Der Host wählt die Gruppengröße vor dem Hosten. Für vier Personen zeigt die Lobby zusätzlich die Kampfart an. Die Gäste geben die angezeigte Host-Adresse und denselben UDP-Port ein. Der Standardport ist **24738/UDP**. Über das Internet benötigt der Host eine erreichbare IP-Adresse oder einen DNS-Namen und gegebenenfalls eine UDP-Portweiterleitung. Alternativ geht ein gemeinsames virtuelles Netzwerk. Verlässt jemand eine laufende Partie, kehren die Übrigen in die Lobby zurück und können einen Platz nachbesetzen.
+
+### Gruppenkämpfe
+
+Bei **Alle gegen alle** gewinnt die letzte Figur. Für **2 gegen 2** wählt ihr P2, P3 oder P4 als Partner von P1. Diese beiden spielen für Blau, die übrigen für Orange. Im Netzwerk legt der Host die Aufteilung in der Lobby fest. Nahkampf und Projektile treffen im Teamkampf nur Gegner. Ein Team spielt weiter, solange mindestens eine seiner Figuren einen Versuch hat. Bei Zeitablauf zählen zuerst die übrigen Versuche. Bei gleicher Anzahl entscheidet der niedrigere Gesamtrückstoß der übrigen Figuren im Team. Eine Revanche übernimmt die Kampfart und die Teams.
 
 ## Entwickeln und exportieren
 
@@ -88,4 +92,4 @@ XDG_DATA_HOME="$(mktemp -d)" godot --headless --script res://tests/controller_fl
 XDG_DATA_HOME="$(mktemp -d)" godot --headless --script res://tests/playthroughs.gd -- tournament
 ```
 
-Startet für einen lokalen Netzwerktest `tests/network_flows.gd` in zwei Prozessen mit den Argumenten `-- host` und `-- guest`. Die Lizenztexte liegen in den Desktop-ZIPs unter `Lizenzen/` und die Schriftlizenzen im Repository unter `assets/fonts/`.
+Startet für einen lokalen Netzwerktest `tests/network_flows.gd` in zwei Prozessen mit den Argumenten `-- host` und `-- guest`. Für vier Prozesse verwendet ihr `-- host4` und je einmal `-- guest4-1`, `-- guest4-2` und `-- guest4-3`. Für Teamkämpfe heißen die Rollen `host4teams`, `guest4teams-1`, `guest4teams-2` und `guest4teams-3`. Die Lizenztexte liegen in den Desktop-ZIPs unter `Lizenzen/` und die Schriftlizenzen im Repository unter `assets/fonts/`.

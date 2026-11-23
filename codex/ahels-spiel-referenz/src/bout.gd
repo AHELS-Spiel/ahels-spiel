@@ -27,6 +27,7 @@ class Fighter:
 	var facing := 1
 	var balance := 0.0
 	var last_hit_at := -INF
+	var last_attacker := -1
 	var stocks := 3
 	var standing := false
 	var jumps := 2
@@ -111,11 +112,14 @@ var spotlight_serial := 0
 var spotlight_fighter := -1
 var spotlight_queue: Array[int] = []
 var difficulty := 1
+var team_partner := 0
+var team_order := PackedInt32Array([0, 1, 2, 3])
 var rng := RandomNumberGenerator.new()
 
 
 func _init(catalog: ArenaCatalog, arena: int, one: int, two: int, game_mode: String,
-		bot_level: int = 1, stocks: int = DEFAULT_STOCKS, seconds: float = MAX_SECONDS) -> void:
+		bot_level: int = 1, stocks: int = DEFAULT_STOCKS, seconds: float = MAX_SECONDS,
+		extras := PackedInt32Array(), partner: int = 0) -> void:
 	stage_index = arena
 	max_stocks = clampi(stocks, 1, 5)
 	time_limit = maxf(seconds, 0.0)
@@ -125,6 +129,15 @@ func _init(catalog: ArenaCatalog, arena: int, one: int, two: int, game_mode: Str
 	fighters.append(Fighter.new(one, catalog.fighters[one]))
 	if mode != "training":
 		fighters.append(Fighter.new(two, catalog.fighters[two]))
+		for id in extras:
+			fighters.append(Fighter.new(id, catalog.fighters[id]))
+	if fighters.size() == 4:
+		team_partner = clampi(partner, 0, 3)
+	if team_partner > 0:
+		team_order = PackedInt32Array([0, team_partner])
+		for slot in range(1, fighters.size()):
+			if slot != team_partner:
+				team_order.append(slot)
 	if mode == "training" or mode == "practice":
 		starts_in = 0.0
 	for i in fighters.size():
@@ -140,10 +153,19 @@ func _init(catalog: ArenaCatalog, arena: int, one: int, two: int, game_mode: Str
 func reset_position(index: int, show_flash: bool = true) -> void:
 	var fighter := fighters[index]
 	var ground: Rect2 = stage["surfaces"][0]
-	fighter.p = Vector2(float(stage["spawns"][index]), ground.position.y - (115.0 if show_flash else 0.0))
+	var spawn: float
+	if team_partner > 0:
+		spawn = lerpf(float(stage["spawns"][0]), float(stage["spawns"][1]), float(team_order.find(index)) / 3.0)
+	elif index < 2:
+		spawn = float(stage["spawns"][index])
+	else:
+		spawn = lerpf(float(stage["spawns"][0]), float(stage["spawns"][1]),
+			float(index - 1) / (fighters.size() - 1))
+	fighter.p = Vector2(spawn, ground.position.y - (115.0 if show_flash else 0.0))
 	fighter.v = Vector2.ZERO
-	fighter.facing = 1 if index == 0 else -1
+	fighter.facing = 1 if spawn < ground.get_center().x else -1
 	fighter.last_hit_at = -INF
+	fighter.last_attacker = -1
 	fighter.balance = float(practice_damage) if mode == "practice" and index == 1 else 0.0
 	fighter.stun = 0.0
 	fighter.dodge_time = 0.0
@@ -173,7 +195,8 @@ func reset_position(index: int, show_flash: bool = true) -> void:
 		flash(fighter.p, fighter.profile["accent"], "spawn")
 
 
-func tick(delta: float, first: int, first_edge: int, second: int, second_edge: int) -> void:
+func tick(delta: float, first: int, first_edge: int, second: int, second_edge: int,
+		extra_controls: Array[Vector2i] = []) -> void:
 	update_flashes(delta)
 	if winner != ONGOING:
 		return
@@ -200,10 +223,13 @@ func tick(delta: float, first: int, first_edge: int, second: int, second_edge: i
 				second_edge = bot_input(delta)
 				second = bot_direction
 	update_fighter(0, delta, first, first_edge)
-	if fighters.size() == 2:
+	if fighters.size() > 1:
 		update_fighter(1, delta, second, second_edge)
+	for index in range(2, fighters.size()):
+		var input := extra_controls[index - 2] if index - 2 < extra_controls.size() else Vector2i.ZERO
+		update_fighter(index, delta, input.x, input.y)
 	update_shots(delta)
-	if fighters.size() == 2:
+	if fighters.size() > 1:
 		for i in fighters.size():
 			if fighters[i].stocks > 0 and outside(fighters[i].p):
 				ring_out(i)
@@ -437,10 +463,11 @@ func resolve_attack(index: int) -> void:
 			return
 	flash(at + Vector2(f.facing * 33 if forward_only else 0, 0), visual,
 		"slash" if forward_only else "burst", f.facing)
-	if mode != "training":
-		var target := fighters[1 - index]
-		if in_reach(f, target.p, reach, vertical, forward_only):
-			hit(1 - index, power * strength, f.facing if forward_only else direction(f.p.x, target.p.x), visual)
+	for slot in fighters.size():
+		var target := fighters[slot]
+		if slot != index and in_reach(f, target.p, reach, vertical, forward_only):
+			hit(slot, power * strength, f.facing if forward_only else direction(f.p.x, target.p.x),
+				visual, 1.0, 1.0, index)
 
 
 func resolve_openers_and_finisher(index: int, move: String) -> void:
@@ -458,23 +485,28 @@ func resolve_openers_and_finisher(index: int, move: String) -> void:
 			sound("hit")
 			next_lesson()
 		return
-	var target := fighters[1 - index]
-	var aim := target.p - Vector2(0, 19 if move == "air" else 0)
-	if not in_reach(f, aim, reach, height, true):
-		return
 	var opener := move != "finisher"
 	var repeats := f.repeated_hits if f.last_opener == move else 0
 	var strength := lerpf(1.0, float(f.profile["power"]), 0.55) * focus_bonus
 	var power := float(attack["power"]) * strength * ArenaMoves.repetition_scale(repeats)
-	if hit(1 - index, power, f.facing, tint, float(attack["push"]), float(attack["lift"])):
-		if opener:
-			f.last_opener = move
-			f.repeated_hits = repeats + 1
-			f.repetition_time = ArenaMoves.STALE_TIME
-			f.combo_window = ArenaMoves.CHAIN_TIME
-		else:
+	var landed := false
+	for slot in fighters.size():
+		var target := fighters[slot]
+		var aim := target.p - Vector2(0, 19 if move == "air" else 0)
+		if slot == index or not in_reach(f, aim, reach, height, true):
+			continue
+		if not hit(slot, power, f.facing, tint, float(attack["push"]), float(attack["lift"]), index):
+			continue
+		landed = true
+		if not opener:
 			flash(target.p - Vector2(0, 44), tint, "combo", f.facing)
-			sound("combo")
+	if landed and opener:
+		f.last_opener = move
+		f.repeated_hits = repeats + 1
+		f.repetition_time = ArenaMoves.STALE_TIME
+		f.combo_window = ArenaMoves.CHAIN_TIME
+	elif landed:
+		sound("combo")
 
 
 func in_reach(f: Fighter, target: Vector2, reach: float, vertical: float, forward: bool) -> bool:
@@ -482,10 +514,18 @@ func in_reach(f: Fighter, target: Vector2, reach: float, vertical: float, forwar
 	return absf(gap.x) <= reach and absf(gap.y) <= vertical and (not forward or gap.x * f.facing >= -20.0)
 
 
+static func side_for(slot: int, partner: int) -> int:
+	if partner == 0:
+		return slot
+	return 0 if slot == 0 or slot == partner else 1
+
+
 func hit(target_index: int, power: float, side: int, tint: Color, push_scale: float = 1.0,
-		lift_scale: float = 1.0) -> bool:
+		lift_scale: float = 1.0, attacker: int = -1) -> bool:
 	var f := fighters[target_index]
 	if f.invulnerable > 0.0 or f.stocks <= 0:
+		return false
+	if attacker >= 0 and side_for(attacker, team_partner) == side_for(target_index, team_partner):
 		return false
 	if f.shield > 0.0:
 		f.shield = 0.0
@@ -498,6 +538,7 @@ func hit(target_index: int, power: float, side: int, tint: Color, push_scale: fl
 	var weight := float(f.profile["weight"]) * (1.55 if is_boss else 1.0)
 	f.balance = minf(STUDENT_CAP, f.balance + power)
 	f.last_hit_at = time
+	f.last_attacker = 1 - target_index if attacker < 0 and fighters.size() == 2 else attacker
 	var push := (178.0 + power * 9.0 + f.balance * 3.6) * push_scale / weight
 	f.v = Vector2(side * push, -maxf(155.0, push * 0.43) * lift_scale)
 	f.stun = clampf(push / 1560.0, 0.16, 0.56)
@@ -519,13 +560,19 @@ func update_shots(delta: float) -> void:
 		if shot.life <= 0.0 or shot.p.x < -50.0 or shot.p.x > 1330.0:
 			shots.remove_at(i)
 			continue
-		if fighters.size() < 2:
-			continue
-		var target := fighters[1 - shot.owner]
-		var diff := shot.p - (target.p - Vector2(0, 33))
-		var hit_target := absf(diff.x) < (39.0 if shot.low else 34.0) and absf(diff.y) < (28.0 if shot.low else 39.0)
-		if hit_target and target.stocks > 0:
-			if hit(1 - shot.owner, shot.power, 1 if shot.v.x >= 0 else -1, shot.tint):
+		var closest := -1
+		var distance := INF
+		for slot in fighters.size():
+			var target := fighters[slot]
+			if side_for(slot, team_partner) == side_for(shot.owner, team_partner) or target.stocks <= 0:
+				continue
+			var diff := shot.p - (target.p - Vector2(0, 33))
+			var hit_target := absf(diff.x) < (39.0 if shot.low else 34.0) and absf(diff.y) < (28.0 if shot.low else 39.0)
+			if hit_target and diff.length_squared() < distance:
+				closest = slot
+				distance = diff.length_squared()
+		if closest >= 0:
+			if hit(closest, shot.power, 1 if shot.v.x >= 0 else -1, shot.tint, 1.0, 1.0, shot.owner):
 				spotlight(shot.owner, "projectile")
 			shots.remove_at(i)
 
@@ -639,8 +686,8 @@ func ring_out(index: int) -> void:
 		fighter.stocks -= 1
 	knockout_queue.append(fighter.id)
 	sound("out")
-	if fighters.size() > 1 and time - fighter.last_hit_at <= 4.0:
-		spotlight(1 - index, "ring_out")
+	if fighter.last_attacker >= 0 and time - fighter.last_hit_at <= 4.0:
+		spotlight(fighter.last_attacker, "ring_out")
 	flash(Vector2(clampf(fighter.p.x, 22.0, 1258.0), clampf(fighter.p.y, 135.0, 630.0)),
 		fighter.profile["accent"], "out")
 	if fighter.stocks > 0:
@@ -654,24 +701,48 @@ func check_end() -> void:
 		fighters[1].stocks = 0
 		knockout_queue.append(fighters[1].id)
 		flash(fighters[1].p - Vector2(0, 42), Color("#ffcf9b"), "out")
-	if fighters[0].stocks == 0 or fighters[1].stocks == 0:
-		if fighters[0].stocks == fighters[1].stocks:
-			winner = DRAW
-		else:
-			winner = 0 if fighters[0].stocks > 0 else 1
+	var remaining := 0
+	var last := DRAW
+	var active_sides := 0
+	for i in fighters.size():
+		if fighters[i].stocks > 0:
+			var side := side_for(i, team_partner)
+			if (active_sides & (1 << side)) == 0:
+				remaining += 1
+				last = side
+				active_sides |= 1 << side
+	if remaining <= 1:
+		winner = last
 	elif time_limit > 0.0 and time >= time_limit:
-		var one := fighters[0]
-		var two := fighters[1]
-		if mode == "boss":
-			winner = 1
-		elif one.stocks != two.stocks:
-			winner = 0 if one.stocks > two.stocks else 1
-		elif is_equal_approx(one.balance, two.balance):
-			winner = DRAW
-		else:
-			winner = 0 if one.balance < two.balance else 1
+		winner = 1 if mode == "boss" else timer_winner()
 	if winner != ONGOING:
 		sound("success")
+
+
+func timer_winner() -> int:
+	var stock_totals := PackedInt32Array([0, 0, 0, 0])
+	var balance_totals := PackedFloat64Array([0.0, 0.0, 0.0, 0.0])
+	for i in fighters.size():
+		var f := fighters[i]
+		if f.stocks > 0:
+			var side := side_for(i, team_partner)
+			stock_totals[side] += f.stocks
+			balance_totals[side] += f.balance
+	var best_stocks := 0
+	var best_balance := INF
+	var leader := DRAW
+	for side in stock_totals.size():
+		var stocks := stock_totals[side]
+		var balance := balance_totals[side]
+		if stocks <= 0 or stocks < best_stocks:
+			continue
+		if stocks > best_stocks or (balance < best_balance and not is_equal_approx(balance, best_balance)):
+			best_stocks = stocks
+			best_balance = balance
+			leader = side
+		elif is_equal_approx(balance, best_balance):
+			leader = DRAW
+	return leader
 
 
 func next_lesson() -> void:

@@ -10,6 +10,9 @@ const PAPER := Color("#f8f0df")
 const SOFT := Color("#d5d9df")
 const MINT := Color("#9ee9ce")
 const PEACH := Color("#ffad94")
+const PLAYER_COLORS: Array[Color] = [MINT, PEACH, Color("#a1c9ff"), Color("#f1dd86")]
+const TEAM_COLORS: Array[Color] = [Color("#8bc3ff"), Color("#ffb477")]
+const TEAM_NAMES := ["Blau", "Orange"]
 const PLATFORM_COLORS: Array[Color] = [
 	Color("#283a4f"), Color("#253746"), Color("#253048"), Color("#433145"),
 	Color("#283d3b"), Color("#473952"), Color("#45273f"), Color("#263d4f"),
@@ -39,6 +42,7 @@ var menu_scene := "home"
 var match_context := ""
 var clock := 0.0
 var smooth_remote := false
+var local_slot := -1
 var reduced_effects := false
 var render_positions: Array[Vector2] = []
 var previous_state: ArenaBout
@@ -178,7 +182,7 @@ func draw_platform(surface: Rect2, accent: Color, stage: int) -> void:
 func draw_fighter(f: ArenaBout.Fighter, position: Vector2, index: int) -> void:
 	var p := position.round()
 	var accent: Color = f.profile["accent"]
-	var player_color := MINT if index == 0 else PEACH
+	var player_color := slot_color(index)
 	var large := 1.22 if f.id == ArenaCatalog.BOSS else 1.0
 	var size := ArenaCatalog.SPRITE_SIZE * 1.32 * large
 	var foot := Rect2(p.x - size.x * 0.53, p.y - size.y * 0.925, size.x, size.y)
@@ -356,7 +360,10 @@ func draw_hud() -> void:
 	if not match_context.is_empty():
 		draw_string(BOLD, Vector2(488, 97), match_context, HORIZONTAL_ALIGNMENT_CENTER, 304, 11, MINT)
 	for index in bout.fighters.size():
-		draw_status(index)
+		if bout.fighters.size() > 2:
+			draw_compact_status(index)
+		else:
+			draw_status(index)
 	if bout.mode == "training":
 		var y := 63.0
 		var x := 963.0
@@ -386,6 +393,43 @@ func draw_voice_prompt() -> void:
 	draw_string(BOLD, origin + Vector2(12, 19), "KLASSENSTIMMEN", HORIZONTAL_ALIGNMENT_LEFT, 262, 11, MINT)
 	draw_string(BOLD, origin + Vector2(12, 37), voice_status if active_status else voice_hint,
 		HORIZONTAL_ALIGNMENT_LEFT, 262, 14, PAPER)
+
+
+func slot_color(index: int) -> Color:
+	if bout.team_partner > 0:
+		return TEAM_COLORS[ArenaBout.side_for(index, bout.team_partner)]
+	return PLAYER_COLORS[index]
+
+
+func draw_compact_status(index: int) -> void:
+	var f := bout.fighters[index]
+	var x: float = [16.0, 242.0, 814.0, 1040.0][bout.team_order.find(index)]
+	var color := slot_color(index)
+	var text_color := PAPER if f.stocks > 0 else SOFT
+	var name := String(f.profile["name"])
+	if f.id in [5, 7, 15, 16]:
+		name += " · %02d" % (f.id + 1)
+	draw_rect(Rect2(x, 14, 216, 80), Color("#253650"))
+	draw_rect(Rect2(x, 14, 3, 80), color)
+	draw_texture_rect(catalog.portraits[f.id], Rect2(x + 7, 21, 45, 53), false,
+		Color.WHITE if f.stocks > 0 else Color("#898f9e"))
+	var slot := "P%d" % (index + 1)
+	if bout.team_partner > 0:
+		slot += " · " + String(TEAM_NAMES[ArenaBout.side_for(index, bout.team_partner)]).to_upper()
+	if index == local_slot:
+		slot += " · DU"
+	draw_string(BOLD, Vector2(x + 62, 32), slot, HORIZONTAL_ALIGNMENT_LEFT, 150, 12, color)
+	draw_string(BOLD, Vector2(x + 62, 52), name, HORIZONTAL_ALIGNMENT_LEFT, 150, 16, text_color)
+	for stock in bout.max_stocks:
+		draw_rect(Rect2(x + 62 + stock * 14, 63, 9, 9), color if stock < f.stocks else Color("#39465b"))
+	var status := "%d%%" % roundi(f.balance) if f.stocks > 0 else "RAUS"
+	draw_string(BOLD, Vector2(x + 136, 76), status, HORIZONTAL_ALIGNMENT_RIGHT, 70, 16, text_color)
+	if f.stocks > 0:
+		var ready := 1.0 - clampf(f.cooldown / float(f.profile["cooldown"]), 0.0, 1.0)
+		draw_rect(Rect2(x + 62, 82, 66, 4), Color("#3a4b61"))
+		draw_rect(Rect2(x + 62, 82, 66 * ready, 4), color)
+		if f.combo_window > 0.0 and f.cooldown <= 0.0:
+			draw_string(BOLD, Vector2(x + 136, 89), "FINISHER", HORIZONTAL_ALIGNMENT_RIGHT, 70, 9, color)
 
 
 func draw_status(index: int) -> void:
