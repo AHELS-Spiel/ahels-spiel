@@ -1,4 +1,4 @@
-# AHELS Arena V5.3
+# AHELS Arena V5.4
 
 Ein Pixel-Plattform-Fighter mit 24 Klassenfiguren und zwei Lehrern. Treffer erhöhen den Rückstoß. Wer über den Rand fällt, verliert einen Versuch.
 
@@ -14,7 +14,7 @@ Die macOS-App ist ad hoc signiert. Je nach Sicherheitseinstellung braucht sie be
 
 ## Modi
 
-- **Klassenduelle.** Spielt gegen Stefan in der Aula, Lukas in der Werkstatt oder Valentin im Computerraum. Auf den Duellkarten könnt ihr die Aufnahmen anhören. Jeder weitere Klick spielt den nächsten Clip der Figur. Im Kampf reagieren die Einwürfe auf den Ring-out von Stefan, den Block von Lukas und den Projektiltreffer von Valentin.
+- **Klassenduelle.** Spielt gegen Stefan in der Aula, Lukas in der Werkstatt oder Valentin im Computerraum. Auf den Duellkarten könnt ihr die Aufnahmen anhören. Jeder weitere Klick spielt den nächsten Clip der Figur.
 - **Solo-Kampagne.** Herr Haidenthaler erklärt im Turnsaal alles auf seine Weise. Die Tafel zeigt die richtigen Tasten. Danach folgen Pausenhof, Computerraum, Aula und das Finale gegen Herrn Grimmer. Springt über die Regalwelle, weicht den sichtbaren Kreidelinien aus und nutzt die Pause zum Kontern.
 - **Tutorial.** Die fünf Übungen aus dem Turnsaal sind auch direkt vom Hauptmenü aus erreichbar.
 - **Versus.** Spielt zu zweit am PC oder gegen die CPU. Wählt Figuren, Arena und auf Wunsch unter **Regeln** ein bis fünf Versuche, das Zeitlimit und die CPU-Stufe. Bei Zeitablauf zählen die verbleibenden Versuche, dann der niedrigere Rückstoßwert. Eine Revanche übernimmt dieselbe Arena und dieselben Regeln.
@@ -33,7 +33,13 @@ Pausenhof, Computerraum, Bibliothek, Werkstatt, Dachterrasse, Aula und Physiksaa
 
 Wechselt zwischen den Angriffen. Wiederholte Treffer mit demselben Grundangriff verlieren an Kraft. Jede Figur hat einen Grundangriff mit zusätzlicher Reichweite und zusätzlichem Schaden.
 
-Die Musik wechselt bei einem knappen Duell mit letzten Versuchen oder ablaufender Uhr. Mit **F3** spielt ihr im Kampf die Stimme der eigenen Figur ab. Hat diese keine Aufnahme, spielt die Stimme des Gegenübers. Bei zwei verschiedenen verfügbaren Stimmen spielt **F4** die zweite Stimme. Mehrmaliges Drücken spielt die Ausschnitte der zugehörigen Figur der Reihe nach ab. Die Tasten stehen im Kampf unten links. Belegte Tasten werden für vorhandene Steuerungseinstellungen übersprungen. In den Einstellungen könnt ihr die Klassenstimmen aus- und einschalten.
+Die Musik wechselt bei einem knappen Duell mit letzten Versuchen oder ablaufender Uhr.
+
+### Klassenstimmen
+
+Mit Sprachdateien startet jede Runde mit „Servas!“, auch Tutorial, Training und Netzwerk. Wenn jemand einen Versuch verliert, kommt Stefans Knockout-Satz. Bei Lukas (Figur 11) kommt sein undeutlicher Einwurf, ersatzweise Stefan. Auch Trainingsstürze lösen eine Reaktion aus. Weitere Einwürfe wechseln bei Treffern, Spezialaktionen und zwischen Aktionen. Lukas reagiert auch auf Blocks und Valentin auf Projektiltreffer.
+
+Mit **F3** spielt ihr im Kampf die Stimme der eigenen Figur ab, sofern sie eine Aufnahme hat. Sonst spielt die Stimme des Gegenübers, wenn eine verfügbar ist. Bei zwei verschiedenen Stimmen spielt **F4** die zweite. Mehrmaliges Drücken spielt die Ausschnitte der zugehörigen Figur der Reihe nach ab. Die Tasten stehen im Kampf unten links. Belegte Tasten werden für vorhandene Steuerungseinstellungen übersprungen. Die Einstellung **Klassenstimmen** gilt für automatische Einwürfe, Stimmtasten und Hörproben.
 
 ### Standardsteuerung
 
@@ -50,7 +56,7 @@ Die Musik wechselt bei einem knappen Duell mit letzten Versuchen oder ablaufende
 
 ### Netzwerk einrichten
 
-Im LAN verwendet ihr die im Menü angezeigte Host-Adresse und denselben UDP-Port. Der Standardport ist **24738/UDP**. Über das Internet benötigt der Host eine erreichbare IP-Adresse oder einen DNS-Namen und gegebenenfalls eine UDP-Portweiterleitung. Alternativ geht ein gemeinsames virtuelles Netzwerk. Für Netzwerkduelle sind V5 bis V5.3 kompatibel. Die Stimmtasten spielen den Clip auf dem eigenen PC ab. In der Netzwerkpause läuft die Runde für das Gegenüber weiter.
+Im LAN verwendet ihr die im Menü angezeigte Host-Adresse und denselben UDP-Port. Der Standardport ist **24738/UDP**. Über das Internet benötigt der Host eine erreichbare IP-Adresse oder einen DNS-Namen und gegebenenfalls eine UDP-Portweiterleitung. Alternativ geht ein gemeinsames virtuelles Netzwerk. Für Netzwerkduelle sind V5 bis V5.4 kompatibel. Die Klassenstimmen werden lokal aus den Dateien des jeweiligen PCs abgespielt. In der Netzwerkpause läuft die Runde für das Gegenüber weiter.
 
 ## Entwickeln und exportieren
 
@@ -67,6 +73,8 @@ Im LAN verwendet ihr die im Menü angezeigte Host-Adresse und denselben UDP-Port
 | `src/arena_moves.gd` und `data/move_sets.json` | Angriffsdaten, Finisher und Move-Liste pro Figur |
 
 `python art/make_assets.py` erzeugt die Pixelbilder und Soundeffekte mit Python und Pillow. `python art/soundtrack.py` rendert die vier Instrumentaltracks mit NumPy und FFmpeg. Die beiden Felix- und Jonas-Figuren sind an der Figurennummer erkennbar.
+
+Die optionalen Klassensprachclips lädt das Spiel aus `assets/class_voice/`. Die Dateinamen stehen in `src/catalog.gd`. Das Verzeichnis ist in Git ignoriert. Das Projekt startet auch ohne diese Dateien.
 
 Nach `godot --headless --editor --import` lassen sich die Tests aus dem Projektordner ausführen. Verwendet pro Test ein frisches Profil.
 

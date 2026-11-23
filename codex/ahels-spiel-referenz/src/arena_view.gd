@@ -369,21 +369,22 @@ func draw_spotlight() -> void:
 	var fighter := catalog.fighters[spotlight_id]
 	var profile: Dictionary = fighter["class_duel"]
 	var accent: Color = fighter["accent"]
-	var area := Rect2(478, 116, 324, 47)
+	var origin := Vector2(890, 105) if bout.mode == "training" else Vector2(478, 116)
+	var area := Rect2(origin, Vector2(324, 47))
 	draw_rect(area, Color("#162036"))
 	draw_rect(Rect2(area.position, Vector2(3, area.size.y)), accent)
-	draw_texture_rect(catalog.portraits[spotlight_id], Rect2(489, 120, 34, 37), false)
+	draw_texture_rect(catalog.portraits[spotlight_id], Rect2(origin + Vector2(11, 4), Vector2(34, 37)), false)
 	var action := spotlight_caption if not spotlight_caption.is_empty() else String(profile["callout"])
 	var caption: String = "%s · %s" % [fighter["name"], action]
-	draw_string(BOLD, Vector2(532, 145), caption, HORIZONTAL_ALIGNMENT_LEFT, 258, 16, PAPER)
+	draw_string(BOLD, origin + Vector2(54, 29), caption, HORIZONTAL_ALIGNMENT_LEFT, 258, 16, PAPER)
 
 
 func draw_voice_prompt() -> void:
-	var area := Rect2(22, 656, 286, 49)
-	draw_rect(area, Color("#101728"))
+	var origin := Vector2(927, 570) if bout.mode == "training" else Vector2(22, 656)
+	draw_rect(Rect2(origin, Vector2(286, 49)), Color("#101728"))
 	var active_status := clock < voice_status_until
-	draw_string(BOLD, Vector2(34, 675), "KLASSENSTIMMEN", HORIZONTAL_ALIGNMENT_LEFT, 262, 11, MINT)
-	draw_string(BOLD, Vector2(34, 693), voice_status if active_status else voice_hint,
+	draw_string(BOLD, origin + Vector2(12, 19), "KLASSENSTIMMEN", HORIZONTAL_ALIGNMENT_LEFT, 262, 11, MINT)
+	draw_string(BOLD, origin + Vector2(12, 37), voice_status if active_status else voice_hint,
 		HORIZONTAL_ALIGNMENT_LEFT, 262, 14, PAPER)
 
 

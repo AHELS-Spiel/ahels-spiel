@@ -37,8 +37,22 @@ const GOALS := {
 }
 const MUSIC_DEFAULT := 55
 const EFFECTS_DEFAULT := 70
+const VOICE_GREETING := "lukas-04.ogg"
+const VOICE_KNOCKOUT := "stefan-03.ogg"
+const VOICE_LUKAS_KNOCKOUT := "lukas-02.ogg"
+const VOICE_ACTION_GAP := 4.0
+const VOICE_IDLE_GAP := 7.5
 const GAMEPAD := [JOY_BUTTON_DPAD_LEFT, JOY_BUTTON_DPAD_RIGHT, JOY_BUTTON_A, JOY_BUTTON_X,
 	JOY_BUTTON_Y, JOY_BUTTON_B, JOY_BUTTON_DPAD_DOWN]
+
+class VoiceClip:
+	var fighter_id: int
+	var stream: AudioStream
+
+	func _init(speaker: int, audio: AudioStream) -> void:
+		fighter_id = speaker
+		stream = audio
+
 
 var catalog: ArenaCatalog
 var view: ArenaView
@@ -81,11 +95,16 @@ var frame_serial := 0
 var quitting := false
 var music: AudioStreamPlayer
 var voice: AudioStreamPlayer
-var voice_streams: Dictionary = {}
-var voice_event_streams: Dictionary = {}
+var fighter_voices: Dictionary[int, Array] = {}
+var voice_clips: Dictionary[String, VoiceClip] = {}
 var next_voice_clip: Dictionary = {}
+var ambient_voices: Array[VoiceClip] = []
+var next_ambient_voice := 0
+var prefer_event_voice := true
 var voices_enabled := true
-var last_voice_ms := -10000
+var last_bout_voice_at := 0.0
+var knockout_playing := false
+var pending_knockouts: Array[int] = []
 var match_voice_keys: Array[int] = []
 var match_voice_ids: Array[int] = []
 var track := ""
@@ -234,22 +253,27 @@ func make_audio() -> void:
 		effects[cue] = player
 	for id in catalog.class_duel_fighters:
 		var profile: Dictionary = catalog.fighters[id]["class_duel"]
-		var clips: Array[AudioStream] = []
-		for index in profile["clips"].size():
-			var clip_path := "res://assets/class_voice/%s" % profile["clips"][index]
-			if not ResourceLoader.exists(clip_path):
+		var clips: Array[VoiceClip] = []
+		for filename: String in profile["clips"]:
+			var stream := load_voice_stream(filename)
+			if stream == null:
 				continue
-			var stream := load(clip_path) as AudioStream
-			if stream != null:
-				clips.append(stream)
-				if index == 0:
-					voice_event_streams[id] = stream
+			var clip := VoiceClip.new(id, stream)
+			voice_clips[filename] = clip
+			clips.append(clip)
+			if filename not in [VOICE_GREETING, VOICE_KNOCKOUT]:
+				ambient_voices.append(clip)
 		if not clips.is_empty():
-			voice_streams[id] = clips
-	if not voice_streams.is_empty():
+			fighter_voices[id] = clips
+	if not voice_clips.is_empty():
 		voice = AudioStreamPlayer.new()
 		add_child(voice)
 		voice.finished.connect(apply_music_level)
+
+
+func load_voice_stream(filename: String) -> AudioStream:
+	var path := "res://assets/class_voice/%s" % filename
+	return load(path) as AudioStream if ResourceLoader.exists(path) else null
 
 
 func change_music(name: String) -> void:
@@ -294,6 +318,8 @@ func stop_audio() -> void:
 
 
 func stop_class_voice() -> void:
+	pending_knockouts.clear()
+	knockout_playing = false
 	if voice_is_playing():
 		voice.stop()
 		apply_music_level()
@@ -337,39 +363,45 @@ func play_sound(cue: String) -> void:
 		player.play()
 
 
-func play_class_voice(id: int, event_cue: bool = false) -> float:
-	if muted or quitting or DisplayServer.get_name() == "headless" or not voice_streams.has(id):
+func play_voice(clip: VoiceClip) -> float:
+	if clip == null or not voices_enabled or muted or quitting or DisplayServer.get_name() == "headless":
 		return 0.0
-	var clips: Array[AudioStream] = voice_streams[id]
-	var stream: AudioStream
-	if event_cue:
-		stream = voice_event_streams.get(id)
-		if stream == null:
-			return 0.0
-	else:
-		var index := int(next_voice_clip.get(id, 0))
-		stream = clips[index]
-		next_voice_clip[id] = (index + 1) % clips.size()
 	voice.stop()
-	voice.stream = stream
+	voice.stream = clip.stream
 	voice.play()
 	apply_music_level()
-	last_voice_ms = Time.get_ticks_msec()
-	return stream.get_length()
+	return clip.stream.get_length()
+
+
+func play_bout_voice(clip: VoiceClip, caption: String, knockout: bool = false) -> bool:
+	var seconds := play_voice(clip)
+	if seconds <= 0.0:
+		return false
+	last_bout_voice_at = bout.time
+	knockout_playing = knockout
+	view.show_spotlight(clip.fighter_id, maxf(seconds, 1.8), caption)
+	return true
+
+
+func play_class_voice(id: int) -> void:
+	var clips: Array[VoiceClip] = fighter_voices[id]
+	var index := int(next_voice_clip.get(id, 0))
+	var caption := "Stimme %d/%d" % [index + 1, clips.size()] if clips.size() > 1 else "Stimme"
+	var played := play_bout_voice(clips[index], caption) if screen == "bout" else play_voice(clips[index]) > 0.0
+	if played:
+		next_voice_clip[id] = (index + 1) % clips.size()
 
 
 func refresh_match_voice_controls() -> void:
 	match_voice_keys = keyboard.voice_shortcuts()
 	match_voice_ids.clear()
 	view.voice_hint = ""
-	if bout.mode == "training":
-		return
 	var local_slot := 1 if bout.mode == "network" and not link.hosting else 0
 	for slot in [local_slot, 1 - local_slot]:
 		if slot >= bout.fighters.size():
 			continue
 		var id: int = bout.fighters[slot].id
-		if voice_streams.has(id) and id not in match_voice_ids:
+		if fighter_voices.has(id) and id not in match_voice_ids:
 			match_voice_ids.append(id)
 	var labels := PackedStringArray()
 	for index in match_voice_ids.size():
@@ -379,7 +411,7 @@ func refresh_match_voice_controls() -> void:
 
 
 func handle_voice_shortcut(key: int) -> bool:
-	if screen != "bout" or paused or bout.winner != ArenaBout.ONGOING or bout.mode == "training":
+	if screen != "bout" or paused or bout.winner != ArenaBout.ONGOING:
 		return false
 	var index := match_voice_keys.find(key)
 	if index < 0 or index >= match_voice_ids.size():
@@ -387,14 +419,53 @@ func handle_voice_shortcut(key: int) -> bool:
 	if not voices_enabled or muted:
 		view.show_voice_status("Klassenstimmen sind aus." if not voices_enabled else "Ton ist stumm.")
 		return true
-	var id := match_voice_ids[index]
-	var clip_number := int(next_voice_clip.get(id, 0)) + 1
-	var seconds := play_class_voice(id)
-	if seconds > 0.0:
-		var total: int = voice_streams[id].size()
-		var caption := "Stimme %d/%d" % [clip_number, total] if total > 1 else "Stimme"
-		view.show_spotlight(id, maxf(seconds, 1.8), caption)
+	play_class_voice(match_voice_ids[index])
 	return true
+
+
+func play_bout_audio() -> void:
+	var activity := false
+	for cue in bout.audio_queue:
+		play_sound(cue)
+		if cue in ["hit", "combo", "special", "out", "boss", "success"]:
+			activity = true
+	bout.audio_queue.clear()
+	var featured := -1
+	for id in bout.spotlight_queue:
+		if not paused and id in catalog.class_duel_fighters:
+			featured = id
+			if not voice_is_playing():
+				view.show_spotlight(id, 1.8)
+	bout.spotlight_queue.clear()
+	if not paused and voices_enabled and not muted and not voice_clips.is_empty():
+		pending_knockouts.append_array(bout.knockout_queue)
+		play_automatic_voice(activity, featured)
+	bout.knockout_queue.clear()
+
+
+func play_automatic_voice(activity: bool, featured: int) -> void:
+	if not pending_knockouts.is_empty():
+		# A knockout can interrupt a comment. Simultaneous knockouts play in order.
+		if not (knockout_playing and voice_is_playing()):
+			var loser := catalog.fighters[pending_knockouts.pop_front()]
+			var use_lukas := String(loser["id"]) == "figur-11" and voice_clips.has(VOICE_LUKAS_KNOCKOUT)
+			var filename := VOICE_LUKAS_KNOCKOUT if use_lukas else VOICE_KNOCKOUT
+			play_bout_voice(voice_clips.get(filename), "Ring-out" if use_lukas else "Knocked out", true)
+		return
+	if voice_is_playing() or bout.starts_in > 0.0 or bout.winner != ArenaBout.ONGOING \
+			or (bout.mode == "training" and bout.tutorial_step == 5):
+		return
+	var gap := bout.time - last_bout_voice_at
+	if gap < VOICE_ACTION_GAP or (not activity and featured < 0 and gap < VOICE_IDLE_GAP):
+		return
+	if featured >= 0 and prefer_event_voice:
+		var profile: Dictionary = catalog.fighters[featured]["class_duel"]
+		if play_bout_voice(voice_clips.get(profile.get("event_clip", "")), profile["callout"]):
+			prefer_event_voice = false
+			return
+	if not ambient_voices.is_empty() and play_bout_voice(ambient_voices[next_ambient_voice], "Zwischenruf"):
+		next_ambient_voice = (next_ambient_voice + 1) % ambient_voices.size()
+		prefer_event_voice = true
 
 
 func update_match_music() -> void:
@@ -431,16 +502,7 @@ func _physics_process(delta: float) -> void:
 	else:
 		bout.tick(delta, first, first_edge, second, second_edge)
 	update_match_music()
-	for cue in bout.audio_queue:
-		play_sound(cue)
-	bout.audio_queue.clear()
-	for id in bout.spotlight_queue:
-		if paused or id not in catalog.class_duel_fighters or voice_is_playing():
-			continue
-		var play_now := voices_enabled and Time.get_ticks_msec() - last_voice_ms >= 5500
-		var seconds := play_class_voice(id, true) if play_now else 0.0
-		view.show_spotlight(id, maxf(seconds, 1.8))
-	bout.spotlight_queue.clear()
+	play_bout_audio()
 	if bout.mode == "training" and bout.tutorial_step == 5 and not heard_lesson and not paused:
 		heard_lesson = true
 		show_tutorial_finish()
@@ -637,11 +699,11 @@ func show_class_duels() -> void:
 		label(fighter["ability"], Rect2(x + 20, 420, 334, 30), 18, BOLD, accent)
 		label(profile["hint"], Rect2(x + 20, 453, 335, 61), 16, TEXT, PAPER,
 			HORIZONTAL_ALIGNMENT_LEFT, null, true)
-		if voice_streams.has(id):
+		if fighter_voices.has(id):
 			var voice_button := button(voice_preview_caption(id), Rect2(x + 19, 544, 336, 37),
 				play_class_voice.bind(id))
 			voice_button.pressed.connect(func() -> void: voice_button.text = voice_preview_caption(id))
-			voice_button.disabled = muted
+			voice_button.disabled = muted or not voices_enabled
 			label(profile["voice_note"], Rect2(x + 20, 511, 334, 30), 13, TEXT, DIM)
 		var duel := button("Gegen %s spielen" % fighter_name(id), Rect2(x + 19, 593, 336, 45),
 			select_class_duel.bind(id), true)
@@ -654,7 +716,7 @@ func show_class_duels() -> void:
 
 
 func voice_preview_caption(id: int) -> String:
-	var total: int = voice_streams[id].size()
+	var total: int = fighter_voices[id].size()
 	if total <= 1:
 		return "Stimme anhören"
 	return "Stimme %d/%d anhören" % [int(next_voice_clip.get(id, 0)) + 1, total]
@@ -806,7 +868,7 @@ func show_controls() -> void:
 		label(pads[row], Rect2(columns[3], y, 192, 41), 17)
 	label("Esc oder Start öffnet Pause. F11 schaltet Vollbild um.",
 		Rect2(64, 589, 760, 35), 18, TEXT, DIM)
-	if not voice_streams.is_empty():
+	if not fighter_voices.is_empty():
 		var keys := keyboard.voice_shortcuts()
 		var shortcuts := "%s / %s" % [keyboard.key_caption(keys[0]), keyboard.key_caption(keys[1])]
 		label(shortcuts + " spielt die im Kampf angezeigten Stimmen ab.",
@@ -1387,7 +1449,8 @@ func receive_state(state: Dictionary) -> void:
 func begin_bout(arena: int, one: int, two: int, mode: String, difficulty: int = 1,
 		stocks: int = ArenaBout.DEFAULT_STOCKS, seconds: float = ArenaBout.MAX_SECONDS) -> void:
 	stop_class_voice()
-	last_voice_ms = -10000
+	last_bout_voice_at = 0.0
+	prefer_event_voice = true
 	bout = ArenaBout.new(catalog, arena, one, two, mode, difficulty, stocks, seconds)
 	if mode == "practice":
 		bout.practice_behavior = practice_behavior
@@ -1415,6 +1478,7 @@ func begin_bout(arena: int, one: int, two: int, mode: String, difficulty: int = 
 	frame_serial = 0
 	make_ui()
 	change_music("finale" if mode == "boss" else "arena")
+	play_bout_voice(voice_clips.get(VOICE_GREETING), "Servas!")
 
 
 func show_tutorial_finish() -> void:

@@ -106,6 +106,7 @@ var bot_direction := 0
 var sound_id := 0
 var last_sound := ""
 var audio_queue: Array[String] = []
+var knockout_queue: Array[int] = []
 var spotlight_serial := 0
 var spotlight_fighter := -1
 var spotlight_queue: Array[int] = []
@@ -209,7 +210,7 @@ func tick(delta: float, first: int, first_edge: int, second: int, second_edge: i
 		check_end()
 	else:
 		if outside(fighters[0].p):
-			reset_position(0)
+			ring_out(0)
 		if tutorial_step == 0 and absf(fighters[0].p.x - lesson_origin) >= 120.0:
 			next_lesson()
 
@@ -634,10 +635,11 @@ func release_boss_attack(f: Fighter, floor_surface: Rect2) -> void:
 
 func ring_out(index: int) -> void:
 	var fighter := fighters[index]
-	if mode != "practice":
+	if mode not in ["practice", "training"]:
 		fighter.stocks -= 1
+	knockout_queue.append(fighter.id)
 	sound("out")
-	if time - fighter.last_hit_at <= 4.0:
+	if fighters.size() > 1 and time - fighter.last_hit_at <= 4.0:
 		spotlight(1 - index, "ring_out")
 	flash(Vector2(clampf(fighter.p.x, 22.0, 1258.0), clampf(fighter.p.y, 135.0, 630.0)),
 		fighter.profile["accent"], "out")
@@ -648,8 +650,9 @@ func ring_out(index: int) -> void:
 func check_end() -> void:
 	if mode == "practice":
 		return
-	if mode == "boss" and fighters[1].balance >= 131.0:
+	if mode == "boss" and fighters[1].stocks > 0 and fighters[1].balance >= 131.0:
 		fighters[1].stocks = 0
+		knockout_queue.append(fighters[1].id)
 		flash(fighters[1].p - Vector2(0, 42), Color("#ffcf9b"), "out")
 	if fighters[0].stocks == 0 or fighters[1].stocks == 0:
 		if fighters[0].stocks == fighters[1].stocks:
@@ -733,6 +736,9 @@ func apply_snapshot(state: Dictionary) -> void:
 		f.v = data[1]
 		f.facing = data[2]
 		f.balance = data[3]
+		# The authoritative stock count also covers missed sound events and final KOs.
+		if data[4] < f.stocks:
+			knockout_queue.append(f.id)
 		f.stocks = data[4]
 		f.standing = data[5]
 		f.attack_time = data[6]
