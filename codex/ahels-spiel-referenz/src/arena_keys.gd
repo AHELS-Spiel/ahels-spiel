@@ -4,6 +4,8 @@ extends RefCounted
 const DEFAULTS := [
 	[[KEY_A], [KEY_D], [KEY_W, KEY_SPACE], [KEY_F], [KEY_G], [KEY_Q, KEY_SHIFT], [KEY_S]],
 	[[KEY_LEFT], [KEY_RIGHT], [KEY_UP], [KEY_J], [KEY_K], [KEY_L], [KEY_DOWN]],
+	[[KEY_T], [KEY_U], [KEY_Y], [KEY_V], [KEY_N], [KEY_B], [KEY_M]],
+	[[KEY_KP_4], [KEY_KP_6], [KEY_KP_8], [KEY_KP_7], [KEY_KP_9], [KEY_KP_0], [KEY_KP_5]],
 ]
 const ACTION_NAMES := ["Links", "Rechts", "Springen", "Angreifen", "Spezialfähigkeit", "Ausweichen", "Fallen lassen"]
 const RESERVED := [KEY_ESCAPE, KEY_TAB, KEY_ENTER, KEY_KP_ENTER, KEY_F11, KEY_R, KEY_F2]
@@ -17,7 +19,7 @@ var layouts: Array = DEFAULTS.duplicate(true)
 
 
 func load_layouts(value: Variant) -> void:
-	if not value is Array or value.size() != DEFAULTS.size():
+	if not value is Array or value.size() not in [2, DEFAULTS.size()]:
 		return
 	var used := {}
 	for layout: Variant in value:
@@ -31,6 +33,20 @@ func load_layouts(value: Variant) -> void:
 					return
 				used[key] = true
 	layouts = value.duplicate(true)
+	# Keep old two-player bindings, even if they use a new player's default key.
+	for player in range(layouts.size(), DEFAULTS.size()):
+		var layout: Array = DEFAULTS[player].duplicate(true)
+		for group: Array in layout:
+			var key: int = group[0]
+			if used.has(key):
+				var available := range(KEY_A, KEY_Z + 1) + range(KEY_0, KEY_9 + 1) + range(KEY_F3, KEY_F12 + 1)
+				for fallback in available:
+					if fallback not in RESERVED and not used.has(fallback):
+						key = fallback
+						break
+			group[0] = key
+			used[key] = true
+		layouts.append(layout)
 
 
 func restore_defaults() -> void:

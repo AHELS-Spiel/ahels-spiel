@@ -124,6 +124,57 @@ func run() -> void:
 	press("Zum Hauptmenü")
 	press("Versus")
 	press("Modus: 2 am PC")
+	press("P3")
+	app.choose_fighter(9)
+	press("P4")
+	app.choose_fighter(10)
+	press("Runde starten")
+	check(app.bout.fighters.size() == 4 and app.bout.fighters[2].id == 9 and app.bout.fighters[3].id == 10,
+		"Vier Personen wählen ihre Figuren")
+	app.bout.starts_in = 0.0
+	var move_keys := [KEY_A, KEY_RIGHT, KEY_T, KEY_KP_6]
+	for key in move_keys:
+		var event := InputEventKey.new()
+		event.physical_keycode = key
+		event.keycode = key
+		event.pressed = true
+		Input.parse_input_event(event)
+	Input.flush_buffered_events()
+	await process_frame
+	app._physics_process(1.0 / 60.0)
+	for i in 4:
+		check(app.bout.fighters[i].v.x * (-1 if i % 2 == 0 else 1) > 0.0, "Eigene Steuerung für P%d" % (i + 1))
+		var release := InputEventKey.new()
+		release.physical_keycode = move_keys[i]
+		release.keycode = move_keys[i]
+		release.pressed = false
+		Input.parse_input_event(release)
+	app.bout.fighters[0].p.y = 800.0
+	app._physics_process(1.0 / 60.0)
+	check(app.bout.winner == ArenaBout.ONGOING, "Drei übrige Figuren spielen weiter")
+	app.bout.fighters[1].p.y = 800.0
+	app.bout.fighters[2].p.y = 800.0
+	app._physics_process(1.0 / 60.0)
+	check(app.bout.winner == 3, "Vierter Spieler kann gewinnen")
+	press("Noch eine Runde")
+	check(app.bout.fighters.size() == 4, "Revanche behält alle Figuren")
+	app.bout.fighters[3].p = Vector2(600, 535)
+	app.bout.fighters[3].facing = 1
+	app.bout.fighters[0].p = Vector2(640, 535)
+	app.bout.fighters[2].p = Vector2(648, 535)
+	app.bout.resolve_openers_and_finisher(3, "normal")
+	check(app.bout.fighters[0].last_attacker == 3 and app.bout.fighters[2].last_attacker == 3,
+		"Ein Angriff von P4 kann zwei Gegner treffen")
+	app.bout.starts_in = 0.0
+	app.bout.time = 29.99
+	app.bout.fighters[0].balance = 0.0
+	for i in range(1, 4):
+		app.bout.fighters[i].balance = 20.0
+	app._physics_process(1.0 / 60.0)
+	check(app.bout.winner == 0, "Zeitablauf findet besten Wert über vier Spieler")
+	press("Zum Hauptmenü")
+	press("Versus")
+	press("Modus: 4 am PC")
 	press("Regeln")
 	choose("Versuche", 4)
 	choose("Zeitlimit", 4)

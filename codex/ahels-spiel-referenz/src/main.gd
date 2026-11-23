@@ -63,6 +63,7 @@ var screen := ""
 var home_focus := "Solo-Kampagne"
 var selection_mode := "campaign"
 var selected := Vector2i(0, 5)
+var extra_picks := Vector2i(9, 10)
 var picking := 0
 var stage_pick := 1
 var class_duel_opponent := -1
@@ -75,6 +76,7 @@ var survival_best := 0
 var survival_opponents: Array[int] = []
 var local_goals := PackedStringArray()
 var versus_bot := true
+var versus_four := false
 var versus_stocks := ArenaBout.DEFAULT_STOCKS
 var versus_time := ArenaBout.MAX_SECONDS
 var versus_difficulty := 1
@@ -90,7 +92,7 @@ var tournament_retries := 0
 var paused := false
 var outcome_shown := false
 var heard_lesson := false
-var previous_keys := Vector2i.ZERO
+var previous_keys := PackedInt32Array([0, 0, 0, 0])
 var frame_serial := 0
 var quitting := false
 var music: AudioStreamPlayer
@@ -127,6 +129,8 @@ var rematch_button: Button
 var lobby_matchup: Label
 var end_connection_button: Button
 var host_button: Button
+var host_size_picker: OptionButton
+var host_size := 2
 var join_button: Button
 var address_box: LineEdit
 var port_box: LineEdit
@@ -396,10 +400,11 @@ func refresh_match_voice_controls() -> void:
 	match_voice_keys = keyboard.voice_shortcuts()
 	match_voice_ids.clear()
 	view.voice_hint = ""
-	var local_slot := 1 if bout.mode == "network" and not link.hosting else 0
-	for slot in [local_slot, 1 - local_slot]:
-		if slot >= bout.fighters.size():
-			continue
+	var local_slot := link.local_slot if bout.mode == "network" else 0
+	for offset in bout.fighters.size():
+		if match_voice_ids.size() >= match_voice_keys.size():
+			break
+		var slot := (local_slot + offset) % bout.fighters.size()
 		var id: int = bout.fighters[slot].id
 		if fighter_voices.has(id) and id not in match_voice_ids:
 			match_voice_ids.append(id)
@@ -471,7 +476,12 @@ func play_automatic_voice(activity: bool, featured: int) -> void:
 func update_match_music() -> void:
 	if track != "arena" or bout.mode in ["training", "practice"] or bout.winner != ArenaBout.ONGOING:
 		return
-	var last_stocks := bout.max_stocks > 1 and bout.fighters[0].stocks == 1 and bout.fighters[1].stocks == 1
+	var contenders := 0
+	var last_stocks := bout.max_stocks > 1
+	for fighter in bout.fighters:
+		contenders += int(fighter.stocks > 0)
+		last_stocks = last_stocks and fighter.stocks <= 1
+	last_stocks = last_stocks and contenders > 1
 	var close_to_time := bout.time_limit >= 30.0 and bout.time >= bout.time_limit - 24.0
 	if bout.starts_in == 0.0 and (last_stocks or close_to_time):
 		change_music("pressure")
@@ -480,27 +490,26 @@ func update_match_music() -> void:
 func _physics_process(delta: float) -> void:
 	if screen != "bout" or bout == null:
 		return
-	var first := poll_controls(0)
-	var second := poll_controls(1) if bout.mode == "local" else 0
-	var first_edge := first & ~previous_keys.x
-	var second_edge := second & ~previous_keys.y
-	previous_keys = Vector2i(first, second)
+	var first := read_controls(0)
 	if paused:
 		if bout.mode != "network":
 			return
-		first = 0
-		first_edge = 0
+		first = Vector2i.ZERO
 	if bout.mode == "network":
 		if link.hosting:
 			var remote := link.consume_controls()
-			bout.tick(delta, first, first_edge, remote.x, remote.y)
+			bout.tick(delta, first.x, first.y, remote[0].x, remote[0].y, remote.slice(1))
 			frame_serial += 1
 			if frame_serial % 2 == 0:
 				link.send_state(bout.snapshot())
 		else:
-			link.send_controls(first, first_edge)
+			link.send_controls(first.x, first.y)
 	else:
-		bout.tick(delta, first, first_edge, second, second_edge)
+		var second := read_controls(1) if bout.mode == "local" else Vector2i.ZERO
+		var extras: Array[Vector2i] = []
+		for slot in range(2, bout.fighters.size()):
+			extras.append(read_controls(slot))
+		bout.tick(delta, first.x, first.y, second.x, second.y, extras)
 	update_match_music()
 	play_bout_audio()
 	if bout.mode == "training" and bout.tutorial_step == 5 and not heard_lesson and not paused:
@@ -509,6 +518,13 @@ func _physics_process(delta: float) -> void:
 	if bout.winner != ArenaBout.ONGOING and not outcome_shown and not paused:
 		outcome_shown = true
 		show_result()
+
+
+func read_controls(index: int) -> Vector2i:
+	var held := poll_controls(index)
+	var pressed := held & ~previous_keys[index]
+	previous_keys[index] = held
+	return Vector2i(held, pressed)
 
 
 func poll_controls(index: int) -> int:
@@ -849,46 +865,49 @@ func show_controls() -> void:
 	preferences_page("controls", from_pause)
 	var back := header("Steuerung", "Tastatur und Controller", show_settings.bind(from_pause))
 	style_panel(Rect2(61, 144, 1158, 427), PANEL, EDGE)
-	var columns := [89, 456, 730, 1002]
-	for col in 4:
-		label(["Aktion", "Spieler 1", "Spieler 2", "Controller"][col],
-			Rect2(columns[col], 164, 190, 38), 18, BOLD, MINT)
+	var columns := [89, 378, 517, 656, 795, 966]
+	for col in columns.size():
+		label(["Aktion", "Spieler 1", "Spieler 2", "Spieler 3", "Spieler 4", "Controller"][col],
+			Rect2(columns[col], 164, 130, 38), 17, BOLD, MINT)
 	var actions := ["Laufen", "Springen / Doppelsprung", "Angreifen", "Spezialfähigkeit",
 		"Ausweichen", "Plattform fallen lassen"]
 	var pads := ["Stick / Steuerkreuz", "A", "X", "Y", "B / RB", "Stick / Steuerkreuz ↓"]
 	for row in actions.size():
 		var y := 213 + row * 54
 		ribbon(Rect2(86, y - 5, 1108, 1), EDGE)
-		label(actions[row], Rect2(columns[0], y, 332, 41), 18, BOLD)
-		for player in 2:
+		label(actions[row], Rect2(columns[0], y, 266, 41), 18, BOLD)
+		for player in 4:
 			var aliases := keyboard.caption(player, row + 1)
 			if row == 0:
 				aliases = keyboard.caption(player, 0) + " / " + aliases
-			label(aliases, Rect2(columns[player + 1], y, 253, 41), 17)
-		label(pads[row], Rect2(columns[3], y, 192, 41), 17)
+			label(aliases, Rect2(columns[player + 1], y, 137, 41), 15)
+		label(pads[row], Rect2(columns[5], y, 227, 41), 17)
 	label("Esc oder Start öffnet Pause. F11 schaltet Vollbild um.",
 		Rect2(64, 589, 760, 35), 18, TEXT, DIM)
 	if not fighter_voices.is_empty():
 		var keys := keyboard.voice_shortcuts()
-		var shortcuts := "%s / %s" % [keyboard.key_caption(keys[0]), keyboard.key_caption(keys[1])]
-		label(shortcuts + " spielt die im Kampf angezeigten Stimmen ab.",
-			Rect2(64, 625, 760, 36), 17, TEXT, DIM)
+		var captions := PackedStringArray()
+		for key in keys:
+			captions.append(keyboard.key_caption(key))
+		if not captions.is_empty():
+			label("Stimmen im Kampf · " + " / ".join(captions),
+				Rect2(64, 625, 760, 36), 17, TEXT, DIM)
 	button("Tastenbelegung ändern", Rect2(858, 584, 361, 53), show_bindings)
 	back.grab_focus()
 
 
 func show_bindings(focus: Vector2i = Vector2i(-1, -1), hint: String = "") -> void:
 	preferences_page("bindings", not pause_page.is_empty())
-	var back := header("Tastenbelegung", "Beide Tastaturlayouts", show_controls)
+	var back := header("Tastenbelegung", "Vier Tastaturlayouts", show_controls)
 	style_panel(Rect2(60, 151, 1160, 406), PANEL, EDGE)
-	for player in 2:
-		label("Spieler %d" % (player + 1), Rect2(522 + 343 * player, 162, 315, 31), 17, BOLD, MINT)
+	for player in 4:
+		label("Spieler %d" % (player + 1), Rect2(370 + 207 * player, 162, 195, 31), 17, BOLD, MINT)
 	for action in ArenaKeys.ACTION_NAMES.size():
 		var y := 203 + action * 48
-		label(ArenaKeys.ACTION_NAMES[action], Rect2(86, y, 410, 42), 17, BOLD)
-		for player in 2:
+		label(ArenaKeys.ACTION_NAMES[action], Rect2(86, y, 270, 42), 17, BOLD)
+		for player in 4:
 			var target := Vector2i(player, action)
-			var key_button := button(keyboard.caption(player, action), Rect2(522 + 343 * player, y, 315, 40),
+			var key_button := button(keyboard.caption(player, action), Rect2(370 + 207 * player, y, 195, 40),
 				start_key_capture.bind(target))
 			if target == focus:
 				key_button.grab_focus()
@@ -933,7 +952,7 @@ func cancel_binding() -> void:
 func restore_bindings() -> void:
 	keyboard.restore_defaults()
 	save_settings()
-	show_bindings(Vector2i(-1, -1), "Standardtasten für beide Spieler wiederhergestellt.")
+	show_bindings(Vector2i(-1, -1), "Standardtasten wiederhergestellt.")
 
 
 func show_selection(kind: String, focus_caption: String = "") -> void:
@@ -959,7 +978,8 @@ func show_selection(kind: String, focus_caption: String = "") -> void:
 		detail = details[kind]
 	header(title, detail, show_class_duels if kind == "class_duel" else show_home)
 
-	var chosen := selected.x if picking == 0 else selected.y
+	var lineup := PackedInt32Array([selected.x, selected.y, extra_picks.x, extra_picks.y])
+	var chosen := lineup[picking]
 	var selected_card: Button
 	var two_fighters := kind == "versus" or kind == "practice"
 	for i in ArenaCatalog.STUDENTS:
@@ -982,6 +1002,11 @@ func show_selection(kind: String, focus_caption: String = "") -> void:
 		if i == selected.x and two_fighters:
 			label("1", Rect2(67, 5, 19, 17), 12, BOLD, ink if i == chosen else MINT,
 				HORIZONTAL_ALIGNMENT_RIGHT, card)
+		if kind == "versus" and versus_four:
+			for slot in range(2, 4):
+				if lineup[slot] == i:
+					label(str(slot + 1), Rect2(83 + (slot - 3) * 42, 24, 23, 17), 12, BOLD,
+						ink if i == chosen else ArenaView.PLAYER_COLORS[slot], HORIZONTAL_ALIGNMENT_RIGHT, card)
 
 	var info: Dictionary = catalog.fighters[chosen]
 	var accent: Color = info["accent"]
@@ -1004,7 +1029,14 @@ func show_selection(kind: String, focus_caption: String = "") -> void:
 		ribbon(Rect2(x, 553, 92 * clampf((values[i] - .75) / .52, .1, 1.0), 5), accent)
 	button("Moves ansehen", Rect2(853, 565, 342, 35), show_move_list.bind(chosen, picking))
 
-	if kind == "versus":
+	if kind == "versus" and versus_four:
+		for slot in 4:
+			button("P%d" % (slot + 1), Rect2(59 + 83 * slot, 620, 74, 51), pick_player.bind(slot), picking == slot)
+		button("Modus: 4 am PC", Rect2(391, 620, 169, 51), toggle_versus)
+		button(arena_name(stage_pick) + "  ›", Rect2(572, 620, 177, 51), show_arena_picker)
+		button("Regeln", Rect2(761, 620, 100, 51), show_versus_rules)
+		button("Runde starten", Rect2(873, 618, 348, 53), start_versus, true)
+	elif kind == "versus":
 		button("Spieler 1", Rect2(59, 620, 119, 51), pick_player.bind(0), picking == 0)
 		button("KI-Figur" if versus_bot else "Spieler 2", Rect2(189, 620, 120, 51),
 			pick_player.bind(1), picking == 1)
@@ -1078,10 +1110,11 @@ func show_move_list(id: int, player: int, from_pause: bool = false) -> void:
 
 
 func choose_fighter(id: int) -> void:
-	if picking == 0:
-		selected.x = id
-	else:
-		selected.y = id
+	match picking:
+		0: selected.x = id
+		1: selected.y = id
+		2: extra_picks.x = id
+		3: extra_picks.y = id
 	show_selection(selection_mode)
 
 
@@ -1091,7 +1124,11 @@ func pick_player(index: int) -> void:
 
 
 func toggle_versus() -> void:
-	versus_bot = not versus_bot
+	var was_four := versus_four
+	versus_four = not versus_bot and not was_four
+	versus_bot = was_four
+	if not versus_four:
+		picking = mini(picking, 1)
 	show_selection(selection_mode)
 
 
@@ -1288,7 +1325,7 @@ func show_versus_rules() -> void:
 		versus_difficulty, func(index: int) -> void: versus_difficulty = index)
 	cpu.disabled = not versus_bot
 	label("Höhere Stufen reagieren schneller und nutzen häufiger Spezialfähigkeiten." if versus_bot
-		else "Im Duell zu zweit steuern beide Personen selbst.",
+		else "Im lokalen Duell steuern alle Personen selbst.",
 		Rect2(91, 392, 1074, 41), 17, TEXT, DIM)
 	label("Bei Zeitablauf entscheiden übrige Versuche, dann der niedrigere Rückstoßwert.",
 		Rect2(91, 464, 1074, 40), 17, TEXT, DIM)
@@ -1299,8 +1336,9 @@ func show_versus_rules() -> void:
 func start_versus() -> void:
 	chapter = 0
 	var arena := randi_range(1, catalog.arenas.size() - 1) if stage_pick < 0 else stage_pick
+	var extras := PackedInt32Array([extra_picks.x, extra_picks.y]) if versus_four else PackedInt32Array()
 	begin_bout(arena, selected.x, selected.y, "solo" if versus_bot else "local",
-		versus_difficulty, versus_stocks, versus_time)
+		versus_difficulty, versus_stocks, versus_time, extras)
 
 
 func set_practice_behavior(index: int) -> void:
@@ -1327,11 +1365,13 @@ func show_lobby() -> void:
 	style_panel(Rect2(646, 148, 575, 350), PANEL, EDGE)
 	label("SPIEL HOSTEN", Rect2(83, 169, 430, 57), 40, DISPLAY)
 	label("SPIEL BEITRETEN", Rect2(670, 169, 451, 57), 40, DISPLAY)
-	label("Gib der anderen Person deine Adresse und den UDP-Port.",
+	label("Gib deiner Gruppe die Adresse und den UDP-Port.",
 		Rect2(85, 234, 504, 54), 17, TEXT, DIM, HORIZONTAL_ALIGNMENT_LEFT, null, true)
 	label("Nutze die Adresse der hostenden Person. Im Internet muss der Host erreichbar sein.",
 		Rect2(670, 230, 501, 65), 17, TEXT, DIM, HORIZONTAL_ALIGNMENT_LEFT, null, true)
-	region = label("", Rect2(85, 289, 506, 66), 16, BOLD, MINT, HORIZONTAL_ALIGNMENT_LEFT, null, true)
+	region = label("", Rect2(85, 279, 506, 39), 15, BOLD, MINT, HORIZONTAL_ALIGNMENT_LEFT, null, true)
+	host_size_picker = option_picker("Gruppengröße", ["2 Personen", "3 Personen", "4 Personen"],
+		Rect2(85, 320, 510, 35), host_size - 2, func(index: int) -> void: host_size = index + 2)
 	var arena_button := button(arena_name(host_stage_pick) + "  ›", Rect2(85, 365, 510, 49),
 		show_arena_picker.bind("network"))
 	arena_button.name = "ArenaChoice"
@@ -1339,7 +1379,7 @@ func show_lobby() -> void:
 	label("HOST-ADRESSE", Rect2(670, 300, 518, 28), 13, BOLD, DIM)
 	address_box = field(Rect2(670, 331, 520, 45), last_address, "z. B. 192.168.1.42")
 	address_box.text_submitted.connect(func(_value: String) -> void: join_game())
-	label("UDP-PORT FÜR HOST UND GAST", Rect2(670, 383, 306, 31), 13, BOLD, DIM)
+	label("UDP-PORT FÜR ALLE", Rect2(670, 383, 306, 31), 13, BOLD, DIM)
 	port_box = field(Rect2(1028, 380, 162, 42), last_port, "24738")
 	join_button = button("Verbinden", Rect2(670, 429, 520, 48), join_game, true)
 	style_panel(Rect2(59, 518, 1162, 142), PANEL, EDGE)
@@ -1368,7 +1408,7 @@ func host_game() -> void:
 	var port := get_lobby_port()
 	if port > 0:
 		link.choose_arena(host_stage_pick)
-		link.listen(port, selected.x)
+		link.listen(port, selected.x, host_size)
 
 
 func join_game() -> void:
@@ -1404,25 +1444,27 @@ func refresh_lobby() -> void:
 	lobby_status.text = "%s  ·  %s" % [link.phase, status]
 	region.text = "Deine LAN-Adresse:  %s" % DuelLink.lan_addresses()
 	host_button.disabled = link.peer != null
+	host_size_picker.disabled = link.peer != null
 	join_button.disabled = link.peer != null
 	end_connection_button.visible = link.peer != null
 	ready_button.visible = link.hosting
 	ready_button.disabled = not link.can_start()
 	var chooser := ui.get_node("ArenaChoice") as Button
 	chooser.disabled = link.peer != null and not link.hosting
-	var arena := host_stage_pick if not chooser.disabled or link.preview_host == -1 else link.preview_arena
+	var arena := host_stage_pick if not chooser.disabled or link.preview_fighters.is_empty() else link.preview_arena
 	chooser.text = arena_name(arena) + ("  ›" if not chooser.disabled else "")
-	var host_id := selected.x if link.hosting else link.preview_host
-	var guest_id := link.guest_fighter if link.hosting else selected.x
 	lobby_matchup.text = ""
-	if host_id >= 0 and guest_id >= 0:
-		lobby_matchup.text = "%s gegen %s  ·  %s" % [fighter_name(host_id), fighter_name(guest_id), arena_name(arena)]
+	if not link.preview_fighters.is_empty():
+		var names := PackedStringArray()
+		for slot in link.preview_fighters.size():
+			names.append("%d %s" % [slot + 1, fighter_name(link.preview_fighters[slot])])
+		lobby_matchup.text = "%d/%d  ·  %s" % [names.size(), link.capacity, "  /  ".join(names)]
 
 
 func refresh_rematch() -> void:
 	if link.hosting:
 		rematch_button.disabled = not link.can_start()
-		rematch_button.text = "Revanche starten" if link.can_start() else "Wartet auf Gast"
+		rematch_button.text = "Revanche starten" if link.can_start() else "Wartet auf die Gruppe"
 	else:
 		rematch_button.disabled = link.ready_sent
 		rematch_button.text = "Bereit · Host startet" if link.ready_sent else "Für Revanche bereit"
@@ -1432,8 +1474,9 @@ func start_network() -> void:
 	link.start_round(host_stage_pick)
 
 
-func network_bout(arena: int, one: int, two: int) -> void:
-	begin_bout(arena, one, two, "network")
+func network_bout(arena: int, lineup: PackedInt32Array) -> void:
+	begin_bout(arena, lineup[0], lineup[1], "network", 1,
+		ArenaBout.DEFAULT_STOCKS, ArenaBout.MAX_SECONDS, lineup.slice(2))
 
 
 func network_lost(_message: String) -> void:
@@ -1447,11 +1490,12 @@ func receive_state(state: Dictionary) -> void:
 
 
 func begin_bout(arena: int, one: int, two: int, mode: String, difficulty: int = 1,
-		stocks: int = ArenaBout.DEFAULT_STOCKS, seconds: float = ArenaBout.MAX_SECONDS) -> void:
+		stocks: int = ArenaBout.DEFAULT_STOCKS, seconds: float = ArenaBout.MAX_SECONDS,
+		extras := PackedInt32Array()) -> void:
 	stop_class_voice()
 	last_bout_voice_at = 0.0
 	prefer_event_voice = true
-	bout = ArenaBout.new(catalog, arena, one, two, mode, difficulty, stocks, seconds)
+	bout = ArenaBout.new(catalog, arena, one, two, mode, difficulty, stocks, seconds, extras)
 	if mode == "practice":
 		bout.practice_behavior = practice_behavior
 		bout.practice_damage = practice_damage
@@ -1470,11 +1514,15 @@ func begin_bout(arena: int, one: int, two: int, mode: String, difficulty: int = 
 	elif selection_mode == "campaign" and chapter > 0 and mode in ["solo", "boss"]:
 		view.match_context = "KAMPAGNE · DUELL %d / %d" % [chapter, CAMPAIGN_ARENAS.size()]
 	view.smooth_remote = mode == "network" and not link.hosting
+	view.local_slot = link.local_slot if mode == "network" else -1
+	if bout.fighters.size() > 2:
+		view.match_context = "ALLE GEGEN ALLE · %d" % bout.fighters.size()
 	screen = "bout"
 	paused = false
 	outcome_shown = false
 	heard_lesson = false
-	previous_keys = Vector2i(poll_controls(0), poll_controls(1))
+	for slot in previous_keys.size():
+		previous_keys[slot] = poll_controls(slot)
 	frame_serial = 0
 	make_ui()
 	change_music("finale" if mode == "boss" else "arena")
@@ -1547,6 +1595,8 @@ func show_practice_pause() -> void:
 func resume_bout() -> void:
 	pause_page = ""
 	paused = false
+	for slot in previous_keys.size():
+		previous_keys[slot] = poll_controls(slot)
 	refresh_match_voice_controls()
 	make_ui()
 
@@ -1556,7 +1606,10 @@ func restart_bout() -> void:
 		tournament_retries += 1
 	var one := bout.fighters[0].id
 	var two := bout.fighters[1].id if bout.fighters.size() > 1 else 0
-	begin_bout(bout.stage_index, one, two, bout.mode, bout.difficulty, bout.max_stocks, bout.time_limit)
+	var extras := PackedInt32Array()
+	for slot in range(2, bout.fighters.size()):
+		extras.append(bout.fighters[slot].id)
+	begin_bout(bout.stage_index, one, two, bout.mode, bout.difficulty, bout.max_stocks, bout.time_limit, extras)
 
 
 func show_result() -> void:
@@ -1568,6 +1621,8 @@ func show_result() -> void:
 	if victor >= 0:
 		var winner_fighter := bout.fighters[victor]
 		title = "%s GEWINNT" % fighter_name(winner_fighter.id).to_upper()
+		if bout.fighters.size() > 2:
+			title = "P%d · %s" % [victor + 1, title]
 	var primary := "Noch eine Runde"
 	var next_action := restart_bout
 	var enabled := true
