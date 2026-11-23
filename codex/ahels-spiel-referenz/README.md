@@ -1,4 +1,4 @@
-# AHELS Arena V5.1
+# AHELS Arena V5.2
 
 Ein Pixel-Plattform-Fighter mit 24 Klassenfiguren und zwei Lehrern. Treffer erhöhen den Rückstoß. Wer über den Rand fällt, verliert einen Versuch.
 
@@ -33,7 +33,7 @@ Pausenhof, Computerraum, Bibliothek, Werkstatt, Dachterrasse, Aula und Physiksaa
 
 Wechselt zwischen den Angriffen. Wiederholte Treffer mit demselben Grundangriff verlieren an Kraft. Jede Figur hat einen Grundangriff mit zusätzlicher Reichweite und zusätzlichem Schaden.
 
-Die Musik wechselt bei einem knappen Duell mit letzten Versuchen oder ablaufender Uhr. Wenn eure Ausgabe Klasseneinwürfe enthält, könnt ihr sie in den Einstellungen ausschalten.
+Die Musik wechselt bei einem knappen Duell mit letzten Versuchen oder ablaufender Uhr. Mit **F3** spielt ihr im Kampf die Stimme der eigenen Figur ab. Hat diese keine Aufnahme, spielt die Stimme des Gegenübers. Bei zwei verschiedenen verfügbaren Stimmen spielt **F4** die zweite Stimme. Die Tasten stehen im Kampf unten links. Belegte Tasten werden für vorhandene Steuerungseinstellungen übersprungen. In den Einstellungen könnt ihr die Klassenstimmen aus- und einschalten.
 
 ### Standardsteuerung
 
@@ -50,7 +50,7 @@ Die Musik wechselt bei einem knappen Duell mit letzten Versuchen oder ablaufende
 
 ### Netzwerk einrichten
 
-Im LAN verwendet ihr die im Menü angezeigte Host-Adresse und denselben UDP-Port. Der Standardport ist **24738/UDP**. Über das Internet benötigt der Host eine erreichbare IP-Adresse oder einen DNS-Namen und gegebenenfalls eine UDP-Portweiterleitung. Alternativ geht ein gemeinsames virtuelles Netzwerk. Verwendet V5 oder V5.1 auf beiden PCs. In der Netzwerkpause läuft die Runde für das Gegenüber weiter.
+Im LAN verwendet ihr die im Menü angezeigte Host-Adresse und denselben UDP-Port. Der Standardport ist **24738/UDP**. Über das Internet benötigt der Host eine erreichbare IP-Adresse oder einen DNS-Namen und gegebenenfalls eine UDP-Portweiterleitung. Alternativ geht ein gemeinsames virtuelles Netzwerk. Für Netzwerkduelle sind V5, V5.1 und V5.2 kompatibel. Die Stimmtasten spielen den Clip auf dem eigenen PC ab. In der Netzwerkpause läuft die Runde für das Gegenüber weiter.
 
 ## Entwickeln und exportieren
 

@@ -44,11 +44,22 @@ var render_positions: Array[Vector2] = []
 var previous_state: ArenaBout
 var spotlight_id := -1
 var spotlight_until := 0.0
+var spotlight_caption := ""
+var voice_hint := ""
+var voice_status := ""
+var voice_status_until := 0.0
 
 
-func show_spotlight(id: int, seconds: float) -> void:
+func show_spotlight(id: int, seconds: float, caption: String = "") -> void:
 	spotlight_id = id
 	spotlight_until = clock + seconds
+	spotlight_caption = caption
+	voice_status_until = 0.0
+
+
+func show_voice_status(message: String) -> void:
+	voice_status = message
+	voice_status_until = clock + 1.7
 
 
 
@@ -141,6 +152,8 @@ func draw_match() -> void:
 		draw_lesson()
 	elif bout.mode == "practice":
 		draw_practice()
+	if not voice_hint.is_empty() and bout.winner == ArenaBout.ONGOING:
+		draw_voice_prompt()
 	if bout.starts_in > 0.0:
 		draw_countdown()
 
@@ -360,8 +373,18 @@ func draw_spotlight() -> void:
 	draw_rect(area, Color("#162036"))
 	draw_rect(Rect2(area.position, Vector2(3, area.size.y)), accent)
 	draw_texture_rect(catalog.portraits[spotlight_id], Rect2(489, 120, 34, 37), false)
-	var caption: String = "%s · %s" % [fighter["name"], profile["callout"]]
+	var action := spotlight_caption if not spotlight_caption.is_empty() else String(profile["callout"])
+	var caption: String = "%s · %s" % [fighter["name"], action]
 	draw_string(BOLD, Vector2(532, 145), caption, HORIZONTAL_ALIGNMENT_LEFT, 258, 16, PAPER)
+
+
+func draw_voice_prompt() -> void:
+	var area := Rect2(22, 656, 286, 49)
+	draw_rect(area, Color("#101728"))
+	var active_status := clock < voice_status_until
+	draw_string(BOLD, Vector2(34, 675), "KLASSENSTIMMEN", HORIZONTAL_ALIGNMENT_LEFT, 262, 11, MINT)
+	draw_string(BOLD, Vector2(34, 693), voice_status if active_status else voice_hint,
+		HORIZONTAL_ALIGNMENT_LEFT, 262, 14, PAPER)
 
 
 func draw_status(index: int) -> void:

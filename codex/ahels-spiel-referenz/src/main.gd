@@ -84,6 +84,8 @@ var voice: AudioStreamPlayer
 var voice_streams: Dictionary = {}
 var voices_enabled := true
 var last_voice_ms := -10000
+var match_voice_keys: Array[int] = []
+var match_voice_ids: Array[int] = []
 var track := ""
 var effects: Dictionary = {}
 var muted := false
@@ -324,16 +326,55 @@ func play_sound(cue: String) -> void:
 		player.play()
 
 
-func play_class_voice(id: int, preview: bool = false) -> void:
+func play_class_voice(id: int) -> bool:
 	if muted or quitting or DisplayServer.get_name() == "headless" or not voice_streams.has(id):
-		return
-	var now := Time.get_ticks_msec()
-	if not preview and (not voices_enabled or voice.playing or now - last_voice_ms < 5500):
-		return
+		return false
+	voice.stop()
 	voice.stream = voice_streams[id]
 	voice.play()
 	apply_music_level()
-	last_voice_ms = now
+	last_voice_ms = Time.get_ticks_msec()
+	return true
+
+
+func refresh_match_voice_controls() -> void:
+	match_voice_keys = keyboard.voice_shortcuts()
+	match_voice_ids.clear()
+	view.voice_hint = ""
+	if bout.mode == "training":
+		return
+	var local_slot := 1 if bout.mode == "network" and not link.hosting else 0
+	for slot in [local_slot, 1 - local_slot]:
+		if slot >= bout.fighters.size():
+			continue
+		var id: int = bout.fighters[slot].id
+		if voice_streams.has(id) and id not in match_voice_ids:
+			match_voice_ids.append(id)
+	var labels := PackedStringArray()
+	for index in match_voice_ids.size():
+		labels.append("%s  %s" % [keyboard.key_caption(match_voice_keys[index]),
+			fighter_name(match_voice_ids[index])])
+	view.voice_hint = "     ".join(labels)
+
+
+func handle_voice_shortcut(key: int) -> bool:
+	if screen != "bout" or paused or bout.winner != ArenaBout.ONGOING or bout.mode == "training":
+		return false
+	var index := match_voice_keys.find(key)
+	if index < 0 or index >= match_voice_ids.size():
+		return false
+	if not voices_enabled or muted:
+		view.show_voice_status("Klassenstimmen sind aus." if not voices_enabled else "Ton ist stumm.")
+		return true
+	var id := match_voice_ids[index]
+	if play_class_voice(id):
+		view.show_spotlight(id, spotlight_display_time(id), "Stimme")
+	return true
+
+
+func spotlight_display_time(id: int) -> float:
+	var stream: AudioStream = voice_streams[id]
+	return maxf(1.8, stream.get_length())
 
 
 func update_match_music() -> void:
@@ -374,11 +415,11 @@ func _physics_process(delta: float) -> void:
 		play_sound(cue)
 	bout.audio_queue.clear()
 	for id in bout.spotlight_queue:
-		if id not in catalog.class_duel_fighters or voice_is_playing():
+		if paused or id not in catalog.class_duel_fighters or voice_is_playing():
 			continue
-		play_class_voice(id)
-		var display_time := maxf(1.8, voice.stream.get_length()) if voice_is_playing() else 1.8
-		view.show_spotlight(id, display_time)
+		var play_now := voices_enabled and Time.get_ticks_msec() - last_voice_ms >= 5500
+		var played := play_now and play_class_voice(id)
+		view.show_spotlight(id, spotlight_display_time(id) if played else 1.8)
 	bout.spotlight_queue.clear()
 	if bout.mode == "training" and bout.tutorial_step == 5 and not heard_lesson and not paused:
 		heard_lesson = true
@@ -425,6 +466,9 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 		elif event.physical_keycode == KEY_ESCAPE and not option_is_open():
 			go_back()
+			get_viewport().set_input_as_handled()
+		elif not (event.alt_pressed or event.ctrl_pressed or event.meta_pressed) \
+				and handle_voice_shortcut(event.physical_keycode):
 			get_viewport().set_input_as_handled()
 		elif screen == "bout" and bout.mode == "practice" and not paused:
 			match event.physical_keycode:
@@ -575,7 +619,7 @@ func show_class_duels() -> void:
 			HORIZONTAL_ALIGNMENT_LEFT, null, true)
 		if voice_streams.has(id):
 			var voice_button := button("Stimme anhören", Rect2(x + 19, 544, 336, 37),
-				play_class_voice.bind(id, true))
+				play_class_voice.bind(id))
 			voice_button.disabled = muted
 			label(profile["voice_note"], Rect2(x + 20, 511, 334, 30), 13, TEXT, DIM)
 		var duel := button("Gegen %s spielen" % fighter_name(id), Rect2(x + 19, 593, 336, 45),
@@ -733,7 +777,12 @@ func show_controls() -> void:
 			label(aliases, Rect2(columns[player + 1], y, 253, 41), 17)
 		label(pads[row], Rect2(columns[3], y, 192, 41), 17)
 	label("Esc oder Start öffnet Pause. F11 schaltet Vollbild um.",
-		Rect2(64, 594, 760, 40), 18, TEXT, DIM)
+		Rect2(64, 589, 760, 35), 18, TEXT, DIM)
+	if not voice_streams.is_empty():
+		var keys := keyboard.voice_shortcuts()
+		var shortcuts := "%s / %s" % [keyboard.key_caption(keys[0]), keyboard.key_caption(keys[1])]
+		label(shortcuts + " spielt die im Kampf angezeigten Stimmen ab.",
+			Rect2(64, 625, 760, 36), 17, TEXT, DIM)
 	button("Tastenbelegung ändern", Rect2(858, 584, 361, 53), show_bindings)
 	back.grab_focus()
 
@@ -1318,6 +1367,8 @@ func begin_bout(arena: int, one: int, two: int, mode: String, difficulty: int = 
 		bout.reset_position(1, false)
 	view.bout = bout
 	view.spotlight_id = -1
+	view.voice_status_until = 0.0
+	refresh_match_voice_controls()
 	view.match_context = ""
 	if mode == "survival":
 		view.match_context = "ÜBERLEBEN · WELLE %d / %d" % [survival_wave + 1, SURVIVAL_DIFFICULTIES.size()]
@@ -1354,6 +1405,8 @@ func show_tutorial_finish() -> void:
 
 
 func show_pause() -> void:
+	stop_class_voice()
+	view.spotlight_id = -1
 	pause_page = ""
 	paused = true
 	make_ui()
@@ -1402,6 +1455,7 @@ func show_practice_pause() -> void:
 func resume_bout() -> void:
 	pause_page = ""
 	paused = false
+	refresh_match_voice_controls()
 	make_ui()
 
 

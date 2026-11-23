@@ -4,7 +4,16 @@ const DT := 1.0 / 60.0
 const STEFAN := 4
 const VALENTIN := 9
 const LUKAS := 10
-var app: ArenaApp
+class ShortcutApp extends ArenaApp:
+	var heard: Array[int] = []
+
+	func play_class_voice(id: int) -> bool:
+		if not voice_streams.has(id):
+			return false
+		heard.append(id)
+		return true
+
+var app: ShortcutApp
 var errors := 0
 
 
@@ -19,7 +28,7 @@ func check(ok: bool, message: String) -> void:
 
 
 func run() -> void:
-	app = ArenaApp.new()
+	app = ShortcutApp.new()
 	root.add_child(app)
 	app.set_physics_process(false)
 	check(press("Klassenduelle"), "Klassenduelle aus dem Hauptmenü")
@@ -36,7 +45,8 @@ func run() -> void:
 	check_ring_out()
 	check_guard()
 	check_projectile()
-	print("Klassenduelle, Zuordnung und Netzwerksynchronisierung geprüft.")
+	await check_voice_key()
+	print("Klassenduelle, Stimmenzuordnung, Stimmtasten und Netzwerksynchronisierung geprüft.")
 	app.queue_free()
 	await process_frame
 	quit(0 if errors == 0 else 1)
@@ -59,9 +69,15 @@ func check_ring_out() -> void:
 	bout.ring_out(1)
 	check(bout.spotlight_queue == [STEFAN], "Stefan wird für seinen Ring-out eingeblendet")
 	var guest := ArenaBout.new(app.catalog, 6, STEFAN, LUKAS, "network")
-	guest.apply_snapshot(bout.snapshot())
-	guest.apply_snapshot(bout.snapshot())
-	check(guest.spotlight_queue == [STEFAN], "Netzwerk übernimmt den Einwurf genau einmal")
+	var current := bout.snapshot()
+	guest.apply_snapshot(current)
+	guest.apply_snapshot(current)
+	var older := current.duplicate(true)
+	older["ci"] = 0
+	older["cf"] = LUKAS
+	guest.apply_snapshot(older)
+	guest.apply_snapshot(current)
+	check(guest.spotlight_queue == [STEFAN], "Netzwerk übernimmt den neuesten Einwurf genau einmal")
 	bout.reset_position(1, false)
 	bout.hit(1, 9.0, 1, Color.WHITE)
 	bout.time += 5.0
@@ -89,3 +105,60 @@ func check_projectile() -> void:
 		bout.tick(DT, 0, 0, 0, 0)
 	check(bout.spotlight_queue == [VALENTIN], "Valentin setzt seine Impulslinie aus Abstand ein")
 	check(bout.fighters[0].balance > 0.0, "Die Impulslinie hat getroffen")
+
+
+func check_voice_key() -> void:
+	for id in [STEFAN, LUKAS, VALENTIN]:
+		app.voice_streams[id] = AudioStreamWAV.new()
+
+	app.begin_bout(4, 0, LUKAS, "class_duel")
+	check(app.match_voice_keys[0] == KEY_F3 and app.match_voice_ids == [LUKAS], "F3 findet die Stimme des Gegners")
+	await key_press(KEY_F3)
+	check(app.heard == [LUKAS] and app.view.spotlight_caption == "Stimme", "F3 löst Lukas' Stimme aus")
+	await key_press(KEY_F3, true)
+	check(app.heard == [LUKAS], "Tastenwiederholung startet keine Stimme")
+
+	app.begin_bout(6, STEFAN, VALENTIN, "local")
+	await key_press(KEY_F3)
+	await key_press(KEY_F4)
+	check(app.heard == [LUKAS, STEFAN, VALENTIN], "Zwei Stimmen auf F3 und F4")
+
+	app.voices_enabled = false
+	await key_press(KEY_F3)
+	check(app.heard.size() == 3 and app.view.voice_status == "Klassenstimmen sind aus.", "Deaktivierte Stimmen")
+	app.voices_enabled = true
+	app.muted = true
+	await key_press(KEY_F3)
+	check(app.heard.size() == 3 and app.view.voice_status == "Ton ist stumm.", "Stummschaltung")
+	app.muted = false
+
+	app.show_pause()
+	await key_press(KEY_F3)
+	check(app.heard.size() == 3, "Tasten sind in der Pause inaktiv")
+	var layout := ArenaKeys.DEFAULTS.duplicate(true)
+	layout[0][3] = [KEY_F3]
+	app.keyboard.load_layouts(layout)
+	app.resume_bout()
+	check(app.keyboard.layouts[0][3] == [KEY_F3] and app.match_voice_keys == [KEY_F4, KEY_F5],
+		"Vorhandene Angriffsbelegung bleibt erhalten")
+	await key_press(KEY_F3)
+	await key_press(KEY_F4)
+	check(app.heard == [LUKAS, STEFAN, VALENTIN, STEFAN], "Nur die neue Stimmtaste löst aus")
+	app.keyboard.restore_defaults()
+
+	app.begin_bout(6, STEFAN, VALENTIN, "network")
+	check(app.match_voice_ids == [VALENTIN, STEFAN], "Gast hört zuerst seine eigene Figur")
+	app.bout.winner = 0
+	await key_press(KEY_F3)
+	check(app.heard.size() == 4, "Rundenende deaktiviert die Stimmtaste")
+
+
+func key_press(key: int, echo: bool = false) -> void:
+	for pressed in [true, false]:
+		var event := InputEventKey.new()
+		event.physical_keycode = key
+		event.keycode = key
+		event.pressed = pressed
+		event.echo = echo
+		Input.parse_input_event(event)
+		await process_frame

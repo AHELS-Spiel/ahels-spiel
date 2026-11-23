@@ -7,6 +7,11 @@ const DEFAULTS := [
 ]
 const ACTION_NAMES := ["Links", "Rechts", "Springen", "Angreifen", "Spezialfähigkeit", "Ausweichen", "Fallen lassen"]
 const RESERVED := [KEY_ESCAPE, KEY_TAB, KEY_ENTER, KEY_KP_ENTER, KEY_F11, KEY_R, KEY_F2]
+const VOICE_CANDIDATES := [
+	KEY_F3, KEY_F4, KEY_F5, KEY_F6, KEY_F7, KEY_F8, KEY_F9, KEY_F10, KEY_F12,
+	KEY_V, KEY_B, KEY_M, KEY_N, KEY_C, KEY_X, KEY_Z, KEY_Y, KEY_U, KEY_I, KEY_O, KEY_P,
+	KEY_H, KEY_T, KEY_E, KEY_W, KEY_A, KEY_S, KEY_D, KEY_F, KEY_G, KEY_J, KEY_K, KEY_L, KEY_Q,
+]
 
 var layouts: Array = DEFAULTS.duplicate(true)
 
@@ -44,27 +49,40 @@ func conflict(key: int, target: Vector2i) -> String:
 	return ""
 
 
+func voice_shortcuts() -> Array[int]:
+	var keys: Array[int] = []
+	for key: int in VOICE_CANDIDATES:
+		if conflict(key, Vector2i(-1, -1)).is_empty():
+			keys.append(key)
+			if keys.size() == 2:
+				break
+	return keys
+
+
+func key_caption(key: int) -> String:
+	var display_key := key
+	if DisplayServer.get_name() != "headless":
+		var translated := DisplayServer.keyboard_get_keycode_from_physical(key)
+		if translated != KEY_NONE:
+			display_key = translated
+	match display_key:
+		KEY_SPACE:
+			return "Leertaste"
+		KEY_SHIFT:
+			return "Umschalt"
+		KEY_LEFT:
+			return "←"
+		KEY_RIGHT:
+			return "→"
+		KEY_UP:
+			return "↑"
+		KEY_DOWN:
+			return "↓"
+	return OS.get_keycode_string(display_key)
+
+
 func caption(player: int, action: int) -> String:
 	var names := PackedStringArray()
 	for key: int in layouts[player][action]:
-		var display_key := key
-		if DisplayServer.get_name() != "headless":
-			var translated := DisplayServer.keyboard_get_keycode_from_physical(key)
-			if translated != KEY_NONE:
-				display_key = translated
-		match display_key:
-			KEY_SPACE:
-				names.append("Leertaste")
-			KEY_SHIFT:
-				names.append("Umschalt")
-			KEY_LEFT:
-				names.append("←")
-			KEY_RIGHT:
-				names.append("→")
-			KEY_UP:
-				names.append("↑")
-			KEY_DOWN:
-				names.append("↓")
-			_:
-				names.append(OS.get_keycode_string(display_key))
+		names.append(key_caption(key))
 	return " / ".join(names)

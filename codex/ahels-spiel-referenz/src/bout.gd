@@ -755,7 +755,7 @@ func apply_snapshot(state: Dictionary) -> void:
 		sound_id = state["si"]
 		audio_queue.append(state["ls"])
 	var cue_id: int = state.get("ci", 0)
-	if cue_id != spotlight_serial:
+	if cue_id > spotlight_serial:
 		spotlight_serial = cue_id
 		spotlight_fighter = state.get("cf", -1)
 		if spotlight_fighter >= 0:
