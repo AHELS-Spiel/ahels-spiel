@@ -42,6 +42,25 @@ var smooth_remote := false
 var reduced_effects := false
 var render_positions: Array[Vector2] = []
 var previous_state: ArenaBout
+var spotlight_id := -1
+var spotlight_until := 0.0
+var spotlight_caption := ""
+var voice_hint := ""
+var voice_status := ""
+var voice_status_until := 0.0
+
+
+func show_spotlight(id: int, seconds: float, caption: String = "") -> void:
+	spotlight_id = id
+	spotlight_until = clock + seconds
+	spotlight_caption = caption
+	voice_status_until = 0.0
+
+
+func show_voice_status(message: String) -> void:
+	voice_status = message
+	voice_status_until = clock + 1.7
+
 
 
 func _ready() -> void:
@@ -127,10 +146,14 @@ func draw_match() -> void:
 	for fx in bout.flashes:
 		draw_flash(fx)
 	draw_hud()
+	if spotlight_id >= 0 and clock < spotlight_until:
+		draw_spotlight()
 	if bout.mode == "training":
 		draw_lesson()
 	elif bout.mode == "practice":
 		draw_practice()
+	if not voice_hint.is_empty() and bout.winner == ArenaBout.ONGOING:
+		draw_voice_prompt()
 	if bout.starts_in > 0.0:
 		draw_countdown()
 
@@ -163,7 +186,11 @@ func draw_fighter(f: ArenaBout.Fighter, position: Vector2, index: int) -> void:
 	if f.stun > 0.0:
 		frame = 8
 	elif f.attack_time > 0.0:
-		frame = 6 if f.attack_kind == "normal" else 7
+		frame = 6 if f.attack_kind in ArenaMoves.OPENERS else 7
+		if f.attack_kind == "sweep":
+			foot.position.y += 10.0
+		elif f.attack_kind == "air":
+			foot.position.y -= 6.0
 	elif not f.standing or f.dodge_time > 0.0:
 		frame = 5
 	elif absf(f.v.x) > 33.0:
@@ -182,6 +209,9 @@ func draw_fighter(f: ArenaBout.Fighter, position: Vector2, index: int) -> void:
 		draw_circle(p - Vector2(0, 50), 48, Color(accent, 0.11))
 		draw_arc(p - Vector2(0, 50), 48, 0, TAU, 30, Color(accent, 0.75), 2)
 	catalog.draw_sprite(self, f.id, frame, foot, f.facing, tint)
+	if f.pending and f.attack_kind in ["rush", "sweep", "finisher"]:
+		var anticipation := p + Vector2(26 * f.facing, -27 if f.attack_kind == "sweep" else -82)
+		draw_rect(Rect2(anticipation, Vector2(7, 7)), PAPER)
 	if f.id == ArenaCatalog.BOSS and bout.boss_warning > 0.0:
 		var warning := 1.0 - bout.boss_warning / 0.95
 		var color := Color("#93ecff") if bout.boss_chalk else PEACH
@@ -228,7 +258,25 @@ func draw_flash(fx: Dictionary) -> void:
 		if fx["k"] != "dust" and progress < 0.65:
 			draw_arc(p, 12 + progress * 24, 0, TAU, 12, c, 2)
 		return
+	var facing := float(fx["v"])
 	match String(fx["k"]):
+		"rush":
+			for n in 4:
+				var start := p + Vector2(-27 * facing, n * 9 - 15)
+				draw_line(start, start + Vector2(facing * (35 + progress * 60), 0), c, 4.0 - progress * 2)
+		"sweep":
+			draw_set_transform(p, 0.0, Vector2(1.0, 0.25))
+			draw_arc(Vector2.ZERO, 25 + progress * 86, 0, TAU, 18, c, 7)
+			draw_set_transform(Vector2.ZERO)
+		"air":
+			var angle := 0.65 if facing > 0.0 else PI - 0.65
+			draw_arc(p, 22 + progress * 54, angle - 0.9, angle + 0.85, 16, c, 5)
+		"combo":
+			var radius := 25 + progress * 67
+			var points := PackedVector2Array([p - Vector2(radius, 0), p - Vector2(0, radius),
+				p + Vector2(radius, 0), p + Vector2(0, radius), p - Vector2(radius, 0)])
+			draw_polyline(points, c, 4.0 - progress * 2)
+			draw_arc(p, 20 + progress * 93, 0, TAU, 24, Color(PAPER, c.a * 0.65), 2)
 		"slash":
 			var angle := 0.0 if int(fx["v"]) > 0 else PI
 			draw_arc(p, 15 + progress * 40, angle - 1.32, angle + 1.22, 13, c, 5.0 - 3.0 * progress)
@@ -317,6 +365,29 @@ func draw_hud() -> void:
 			draw_rect(Rect2(x + 53 * n, y, 42, 6), MINT if n < bout.tutorial_step else Color("#3a4b61"))
 
 
+func draw_spotlight() -> void:
+	var fighter := catalog.fighters[spotlight_id]
+	var profile: Dictionary = fighter["class_duel"]
+	var accent: Color = fighter["accent"]
+	var origin := Vector2(890, 105) if bout.mode == "training" else Vector2(478, 116)
+	var area := Rect2(origin, Vector2(324, 47))
+	draw_rect(area, Color("#162036"))
+	draw_rect(Rect2(area.position, Vector2(3, area.size.y)), accent)
+	draw_texture_rect(catalog.portraits[spotlight_id], Rect2(origin + Vector2(11, 4), Vector2(34, 37)), false)
+	var action := spotlight_caption if not spotlight_caption.is_empty() else String(profile["callout"])
+	var caption: String = "%s · %s" % [fighter["name"], action]
+	draw_string(BOLD, origin + Vector2(54, 29), caption, HORIZONTAL_ALIGNMENT_LEFT, 258, 16, PAPER)
+
+
+func draw_voice_prompt() -> void:
+	var origin := Vector2(927, 570) if bout.mode == "training" else Vector2(22, 656)
+	draw_rect(Rect2(origin, Vector2(286, 49)), Color("#101728"))
+	var active_status := clock < voice_status_until
+	draw_string(BOLD, origin + Vector2(12, 19), "KLASSENSTIMMEN", HORIZONTAL_ALIGNMENT_LEFT, 262, 11, MINT)
+	draw_string(BOLD, origin + Vector2(12, 37), voice_status if active_status else voice_hint,
+		HORIZONTAL_ALIGNMENT_LEFT, 262, 14, PAPER)
+
+
 func draw_status(index: int) -> void:
 	var f := bout.fighters[index]
 	var x := 33.0 if index == 0 else 925.0
@@ -352,11 +423,21 @@ func draw_status(index: int) -> void:
 		var ready := 1.0 - clampf(f.cooldown / float(f.profile["cooldown"]), 0.0, 1.0)
 		draw_rect(Rect2(x+73, 82, 71.0 * ready, 4), color)
 
+		if f.combo_window > 0.0 and f.cooldown <= 0.0:
+			draw_string(BOLD, Vector2(x + 73, 101), "FINISHER BEREIT", HORIZONTAL_ALIGNMENT_LEFT, 249, 12, color)
+			draw_rect(Rect2(x + 181, 93, 72.0 * f.combo_window / ArenaMoves.CHAIN_TIME, 3), color)
+		elif f.repeated_hits > 1:
+			var percent := roundi(ArenaMoves.repetition_scale(f.repeated_hits - 1) * 100)
+			draw_string(TEXT, Vector2(x + 73, 101), "Wiederholung · %d%%" % percent,
+				HORIZONTAL_ALIGNMENT_LEFT, 249, 12, SOFT)
+
 
 func draw_practice() -> void:
-	draw_rect(Rect2(395, 673, 490, 33), Color("#101728"))
-	draw_string(BOLD, Vector2(405, 695), "R  Zurücksetzen     F2  Gegner     Esc / Start  Optionen",
-		HORIZONTAL_ALIGNMENT_CENTER, 470, 15, PAPER)
+	draw_rect(Rect2(330, 655, 620, 50), Color("#101728"))
+	draw_string(BOLD, Vector2(341, 676), "Treffer → %s für Finisher      Unten + Angriff für Beinfeger" % keyboard.caption(0, 4),
+		HORIZONTAL_ALIGNMENT_CENTER, 598, 15, PAPER)
+	draw_string(TEXT, Vector2(341, 696), "R  Reset      F2  Gegner      Esc / Start  Moves und Optionen",
+		HORIZONTAL_ALIGNMENT_CENTER, 598, 14, SOFT)
 
 
 func draw_lesson() -> void:

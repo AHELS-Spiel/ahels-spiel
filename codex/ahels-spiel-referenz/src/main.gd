@@ -37,8 +37,22 @@ const GOALS := {
 }
 const MUSIC_DEFAULT := 55
 const EFFECTS_DEFAULT := 70
+const VOICE_GREETING := "lukas-04.ogg"
+const VOICE_KNOCKOUT := "stefan-03.ogg"
+const VOICE_LUKAS_KNOCKOUT := "lukas-02.ogg"
+const VOICE_ACTION_GAP := 4.0
+const VOICE_IDLE_GAP := 7.5
 const GAMEPAD := [JOY_BUTTON_DPAD_LEFT, JOY_BUTTON_DPAD_RIGHT, JOY_BUTTON_A, JOY_BUTTON_X,
 	JOY_BUTTON_Y, JOY_BUTTON_B, JOY_BUTTON_DPAD_DOWN]
+
+class VoiceClip:
+	var fighter_id: int
+	var stream: AudioStream
+
+	func _init(speaker: int, audio: AudioStream) -> void:
+		fighter_id = speaker
+		stream = audio
+
 
 var catalog: ArenaCatalog
 var view: ArenaView
@@ -51,6 +65,7 @@ var selection_mode := "campaign"
 var selected := Vector2i(0, 5)
 var picking := 0
 var stage_pick := 1
+var class_duel_opponent := -1
 var host_stage_pick := 1
 var arena_picker_source := "versus"
 var survival_stage_pick := 6
@@ -79,6 +94,19 @@ var previous_keys := Vector2i.ZERO
 var frame_serial := 0
 var quitting := false
 var music: AudioStreamPlayer
+var voice: AudioStreamPlayer
+var fighter_voices: Dictionary[int, Array] = {}
+var voice_clips: Dictionary[String, VoiceClip] = {}
+var next_voice_clip: Dictionary = {}
+var ambient_voices: Array[VoiceClip] = []
+var next_ambient_voice := 0
+var prefer_event_voice := true
+var voices_enabled := true
+var last_bout_voice_at := 0.0
+var knockout_playing := false
+var pending_knockouts: Array[int] = []
+var match_voice_keys: Array[int] = []
+var match_voice_ids: Array[int] = []
 var track := ""
 var effects: Dictionary = {}
 var muted := false
@@ -162,6 +190,9 @@ func _exit_tree() -> void:
 	for sound: AudioStreamPlayer in effects.values():
 		sound.stop()
 		sound.stream = null
+	if is_instance_valid(voice):
+		voice.stop()
+		voice.stream = null
 
 
 func load_settings() -> void:
@@ -169,6 +200,7 @@ func load_settings() -> void:
 	if config.load(SAVE_FILE) != OK:
 		return
 	muted = saved_flag(config.get_value("audio", "muted", false))
+	voices_enabled = saved_flag(config.get_value("audio", "class_voices", true))
 	completed = saved_flag(config.get_value("campaign", "finished", false))
 	tournament_wins = bounded_int(config.get_value("tournament", "wins", 0), 0, 0, 1000000)
 	survival_best = bounded_int(config.get_value("survival", "best_wave", 0), 0, 0, SURVIVAL_DIFFICULTIES.size())
@@ -194,6 +226,7 @@ func save_settings() -> void:
 	var config := ConfigFile.new()
 	config.load(SAVE_FILE)
 	config.set_value("audio", "muted", muted)
+	config.set_value("audio", "class_voices", voices_enabled)
 	config.set_value("audio", "music", music_level)
 	config.set_value("audio", "effects", effects_level)
 	config.set_value("display", "fullscreen", fullscreen)
@@ -212,12 +245,35 @@ func make_audio() -> void:
 	music = AudioStreamPlayer.new()
 	add_child(music)
 	music.finished.connect(repeat_music)
-	for cue in ["select", "jump", "swing", "hit", "special", "out", "success", "boss"]:
+	for cue in ["select", "jump", "swing", "hit", "special", "out", "success", "boss", "combo"]:
 		var player := AudioStreamPlayer.new()
 		player.stream = load("res://assets/audio/%s.wav" % cue)
 		player.max_polyphony = 3
 		add_child(player)
 		effects[cue] = player
+	for id in catalog.class_duel_fighters:
+		var profile: Dictionary = catalog.fighters[id]["class_duel"]
+		var clips: Array[VoiceClip] = []
+		for filename: String in profile["clips"]:
+			var stream := load_voice_stream(filename)
+			if stream == null:
+				continue
+			var clip := VoiceClip.new(id, stream)
+			voice_clips[filename] = clip
+			clips.append(clip)
+			if filename not in [VOICE_GREETING, VOICE_KNOCKOUT]:
+				ambient_voices.append(clip)
+		if not clips.is_empty():
+			fighter_voices[id] = clips
+	if not voice_clips.is_empty():
+		voice = AudioStreamPlayer.new()
+		add_child(voice)
+		voice.finished.connect(apply_music_level)
+
+
+func load_voice_stream(filename: String) -> AudioStream:
+	var path := "res://assets/class_voice/%s" % filename
+	return load(path) as AudioStream if ResourceLoader.exists(path) else null
 
 
 func change_music(name: String) -> void:
@@ -225,7 +281,9 @@ func change_music(name: String) -> void:
 		return
 	track = name
 	music.stop()
-	music.stream = load("res://assets/audio/%s.wav" % name)
+	var loop := load("res://assets/audio/%s.ogg" % name) as AudioStreamOggVorbis
+	loop.loop = true
+	music.stream = loop
 	repeat_music()
 
 
@@ -234,16 +292,37 @@ func repeat_music() -> void:
 		music.play()
 
 
+func voice_is_playing() -> bool:
+	return is_instance_valid(voice) and voice.playing
+
+
+func apply_music_level() -> void:
+	var duck := 6.0 if voice_is_playing() else 0.0
+	music.volume_db = -11.3 + linear_to_db(maxf(0.0001, music_level / 100.0)) - duck
+
+
 func apply_audio() -> void:
-	music.volume_db = -13.8 + linear_to_db(maxf(0.0001, music_level / 100.0))
+	apply_music_level()
+	var effect_level_db := linear_to_db(maxf(0.0001, effects_level / 100.0))
 	for effect: AudioStreamPlayer in effects.values():
-		effect.volume_db = -9.9 + linear_to_db(maxf(0.0001, effects_level / 100.0))
+		effect.volume_db = -9.9 + effect_level_db
+	if is_instance_valid(voice):
+		voice.volume_db = -6.5 + effect_level_db
 
 
 func stop_audio() -> void:
 	music.stop()
 	for effect: AudioStreamPlayer in effects.values():
 		effect.stop()
+	stop_class_voice()
+
+
+func stop_class_voice() -> void:
+	pending_knockouts.clear()
+	knockout_playing = false
+	if voice_is_playing():
+		voice.stop()
+		apply_music_level()
 
 
 func toggle_audio() -> void:
@@ -277,9 +356,125 @@ func display_mode_text() -> String:
 
 
 func play_sound(cue: String) -> void:
-	if not muted and not quitting and DisplayServer.get_name() != "headless" and effects.has(cue):
+	if muted or quitting or DisplayServer.get_name() == "headless":
+		return
+	if effects.has(cue):
 		var player: AudioStreamPlayer = effects[cue]
 		player.play()
+
+
+func play_voice(clip: VoiceClip) -> float:
+	if clip == null or not voices_enabled or muted or quitting or DisplayServer.get_name() == "headless":
+		return 0.0
+	voice.stop()
+	voice.stream = clip.stream
+	voice.play()
+	apply_music_level()
+	return clip.stream.get_length()
+
+
+func play_bout_voice(clip: VoiceClip, caption: String, knockout: bool = false) -> bool:
+	var seconds := play_voice(clip)
+	if seconds <= 0.0:
+		return false
+	last_bout_voice_at = bout.time
+	knockout_playing = knockout
+	view.show_spotlight(clip.fighter_id, maxf(seconds, 1.8), caption)
+	return true
+
+
+func play_class_voice(id: int) -> void:
+	var clips: Array[VoiceClip] = fighter_voices[id]
+	var index := int(next_voice_clip.get(id, 0))
+	var caption := "Stimme %d/%d" % [index + 1, clips.size()] if clips.size() > 1 else "Stimme"
+	var played := play_bout_voice(clips[index], caption) if screen == "bout" else play_voice(clips[index]) > 0.0
+	if played:
+		next_voice_clip[id] = (index + 1) % clips.size()
+
+
+func refresh_match_voice_controls() -> void:
+	match_voice_keys = keyboard.voice_shortcuts()
+	match_voice_ids.clear()
+	view.voice_hint = ""
+	var local_slot := 1 if bout.mode == "network" and not link.hosting else 0
+	for slot in [local_slot, 1 - local_slot]:
+		if slot >= bout.fighters.size():
+			continue
+		var id: int = bout.fighters[slot].id
+		if fighter_voices.has(id) and id not in match_voice_ids:
+			match_voice_ids.append(id)
+	var labels := PackedStringArray()
+	for index in match_voice_ids.size():
+		labels.append("%s  %s" % [keyboard.key_caption(match_voice_keys[index]),
+			fighter_name(match_voice_ids[index])])
+	view.voice_hint = "     ".join(labels)
+
+
+func handle_voice_shortcut(key: int) -> bool:
+	if screen != "bout" or paused or bout.winner != ArenaBout.ONGOING:
+		return false
+	var index := match_voice_keys.find(key)
+	if index < 0 or index >= match_voice_ids.size():
+		return false
+	if not voices_enabled or muted:
+		view.show_voice_status("Klassenstimmen sind aus." if not voices_enabled else "Ton ist stumm.")
+		return true
+	play_class_voice(match_voice_ids[index])
+	return true
+
+
+func play_bout_audio() -> void:
+	var activity := false
+	for cue in bout.audio_queue:
+		play_sound(cue)
+		if cue in ["hit", "combo", "special", "out", "boss", "success"]:
+			activity = true
+	bout.audio_queue.clear()
+	var featured := -1
+	for id in bout.spotlight_queue:
+		if not paused and id in catalog.class_duel_fighters:
+			featured = id
+			if not voice_is_playing():
+				view.show_spotlight(id, 1.8)
+	bout.spotlight_queue.clear()
+	if not paused and voices_enabled and not muted and not voice_clips.is_empty():
+		pending_knockouts.append_array(bout.knockout_queue)
+		play_automatic_voice(activity, featured)
+	bout.knockout_queue.clear()
+
+
+func play_automatic_voice(activity: bool, featured: int) -> void:
+	if not pending_knockouts.is_empty():
+		# A knockout can interrupt a comment. Simultaneous knockouts play in order.
+		if not (knockout_playing and voice_is_playing()):
+			var loser := catalog.fighters[pending_knockouts.pop_front()]
+			var use_lukas := String(loser["id"]) == "figur-11" and voice_clips.has(VOICE_LUKAS_KNOCKOUT)
+			var filename := VOICE_LUKAS_KNOCKOUT if use_lukas else VOICE_KNOCKOUT
+			play_bout_voice(voice_clips.get(filename), "Ring-out" if use_lukas else "Knocked out", true)
+		return
+	if voice_is_playing() or bout.starts_in > 0.0 or bout.winner != ArenaBout.ONGOING \
+			or (bout.mode == "training" and bout.tutorial_step == 5):
+		return
+	var gap := bout.time - last_bout_voice_at
+	if gap < VOICE_ACTION_GAP or (not activity and featured < 0 and gap < VOICE_IDLE_GAP):
+		return
+	if featured >= 0 and prefer_event_voice:
+		var profile: Dictionary = catalog.fighters[featured]["class_duel"]
+		if play_bout_voice(voice_clips.get(profile.get("event_clip", "")), profile["callout"]):
+			prefer_event_voice = false
+			return
+	if not ambient_voices.is_empty() and play_bout_voice(ambient_voices[next_ambient_voice], "Zwischenruf"):
+		next_ambient_voice = (next_ambient_voice + 1) % ambient_voices.size()
+		prefer_event_voice = true
+
+
+func update_match_music() -> void:
+	if track != "arena" or bout.mode in ["training", "practice"] or bout.winner != ArenaBout.ONGOING:
+		return
+	var last_stocks := bout.max_stocks > 1 and bout.fighters[0].stocks == 1 and bout.fighters[1].stocks == 1
+	var close_to_time := bout.time_limit >= 30.0 and bout.time >= bout.time_limit - 24.0
+	if bout.starts_in == 0.0 and (last_stocks or close_to_time):
+		change_music("pressure")
 
 
 func _physics_process(delta: float) -> void:
@@ -306,9 +501,8 @@ func _physics_process(delta: float) -> void:
 			link.send_controls(first, first_edge)
 	else:
 		bout.tick(delta, first, first_edge, second, second_edge)
-	for cue in bout.audio_queue:
-		play_sound(cue)
-	bout.audio_queue.clear()
+	update_match_music()
+	play_bout_audio()
 	if bout.mode == "training" and bout.tutorial_step == 5 and not heard_lesson and not paused:
 		heard_lesson = true
 		show_tutorial_finish()
@@ -355,6 +549,9 @@ func _input(event: InputEvent) -> void:
 		elif event.physical_keycode == KEY_ESCAPE and not option_is_open():
 			go_back()
 			get_viewport().set_input_as_handled()
+		elif not (event.alt_pressed or event.ctrl_pressed or event.meta_pressed) \
+				and handle_voice_shortcut(event.physical_keycode):
+			get_viewport().set_input_as_handled()
 		elif screen == "bout" and bout.mode == "practice" and not paused:
 			match event.physical_keycode:
 				KEY_R:
@@ -390,6 +587,9 @@ func go_back() -> void:
 		"bindings":
 			show_controls()
 			return
+		"moves":
+			show_pause()
+			return
 	match screen:
 		"bout":
 			if outcome_shown or heard_lesson:
@@ -409,7 +609,14 @@ func go_back() -> void:
 			show_selection("versus", "Regeln")
 		"arenas":
 			leave_arena_picker()
-		"select", "settings", "chapter", "tournament_board", "goals":
+		"moves":
+			show_selection(selection_mode, "Moves ansehen")
+		"select":
+			if selection_mode == "class_duel":
+				show_class_duels()
+			else:
+				show_home()
+		"class_duels", "settings", "chapter", "tournament_board", "goals":
 			show_home()
 
 
@@ -428,6 +635,7 @@ func make_ui() -> void:
 
 
 func set_menu(name: String) -> void:
+	stop_class_voice()
 	if screen == "home" and name != "home":
 		var focused := get_viewport().gui_get_focus_owner() as Button
 		if is_instance_valid(focused):
@@ -450,6 +658,7 @@ func show_home() -> void:
 	label("ARENA", Rect2(59, 195, 605, 113), 109, DISPLAY)
 	label("Der Pixel-Plattform-Fighter eurer Klasse", Rect2(68, 319, 500, 30), 20, TEXT, PAPER)
 	var play := button("Solo-Kampagne", Rect2(68, 375, 356, 56), func() -> void: show_selection("campaign"), true)
+	button("Klassenduelle", Rect2(438, 375, 175, 56), show_class_duels)
 	button("Turnier", Rect2(68, 441, 356, 46), func() -> void: show_selection("tournament"))
 	button("Versus", Rect2(68, 497, 356, 46), func() -> void: show_selection("versus"))
 	button("Netzwerk", Rect2(68, 553, 356, 46), func() -> void: show_selection("network"))
@@ -468,6 +677,60 @@ func show_home() -> void:
 			item.grab_focus()
 			return
 	play.grab_focus()
+
+
+func show_class_duels() -> void:
+	set_menu("class_duels")
+	var back := header("Klassenduelle", "Solo · 2 Versuche · 90 Sekunden", show_home)
+	var first_duel: Button
+	for slot in catalog.class_duel_fighters.size():
+		var id := catalog.class_duel_fighters[slot]
+		var fighter := catalog.fighters[id]
+		var profile: Dictionary = fighter["class_duel"]
+		var arena := catalog.arena_index(profile["arena"])
+		var accent: Color = fighter["accent"]
+		var x := 60 + 393 * slot
+		style_panel(Rect2(x, 149, 374, 506), PANEL, EDGE)
+		ribbon(Rect2(x, 149, 374, 3), accent)
+		portrait(id, Rect2(x + 7, 182, 159, 202), ui)
+		add_texture(catalog.backdrops[arena], Rect2(x + 172, 206, 186, 106), ui)
+		label(arena_name(arena), Rect2(x + 172, 315, 181, 29), 15, BOLD, DIM)
+		label(fighter_name(id), Rect2(x + 20, 367, 336, 55), 38, DISPLAY)
+		label(fighter["ability"], Rect2(x + 20, 420, 334, 30), 18, BOLD, accent)
+		label(profile["hint"], Rect2(x + 20, 453, 335, 61), 16, TEXT, PAPER,
+			HORIZONTAL_ALIGNMENT_LEFT, null, true)
+		if fighter_voices.has(id):
+			var voice_button := button(voice_preview_caption(id), Rect2(x + 19, 544, 336, 37),
+				play_class_voice.bind(id))
+			voice_button.pressed.connect(func() -> void: voice_button.text = voice_preview_caption(id))
+			voice_button.disabled = muted or not voices_enabled
+			label(profile["voice_note"], Rect2(x + 20, 511, 334, 30), 13, TEXT, DIM)
+		var duel := button("Gegen %s spielen" % fighter_name(id), Rect2(x + 19, 593, 336, 45),
+			select_class_duel.bind(id), true)
+		if slot == 0:
+			first_duel = duel
+	if is_instance_valid(first_duel):
+		first_duel.grab_focus()
+	else:
+		back.grab_focus()
+
+
+func voice_preview_caption(id: int) -> String:
+	var total: int = fighter_voices[id].size()
+	if total <= 1:
+		return "Stimme anhören"
+	return "Stimme %d/%d anhören" % [int(next_voice_clip.get(id, 0)) + 1, total]
+
+
+func select_class_duel(opponent: int) -> void:
+	class_duel_opponent = opponent
+	show_selection("class_duel")
+
+
+func start_class_duel() -> void:
+	var profile: Dictionary = catalog.fighters[class_duel_opponent]["class_duel"]
+	chapter = 0
+	begin_bout(catalog.arena_index(profile["arena"]), selected.x, class_duel_opponent, "class_duel", 1, 2, 90.0)
 
 
 func show_goals() -> void:
@@ -526,7 +789,21 @@ func show_settings(from_pause: bool = false) -> void:
 	label("Weniger Partikel und Blinkeffekte. Warnzeichen bleiben sichtbar.",
 		Rect2(681, 375, 482, 60), 16, TEXT, DIM, HORIZONTAL_ALIGNMENT_LEFT, null, true)
 	button("Steuerungsübersicht", Rect2(61, 537, 353, 54), show_controls)
+	if is_instance_valid(voice):
+		var voice_button := button(voices_caption(), Rect2(433, 537, 332, 54), toggle_voices)
+		voice_button.pressed.connect(func() -> void: voice_button.text = voices_caption())
 	slider.grab_focus()
+
+
+func voices_caption() -> String:
+	return "Klassenstimmen an" if voices_enabled else "Klassenstimmen aus"
+
+
+func toggle_voices() -> void:
+	voices_enabled = not voices_enabled
+	if not voices_enabled:
+		stop_class_voice()
+	save_settings()
 
 
 func audio_slider(caption: String, level: int, y: int, is_music: bool) -> HSlider:
@@ -590,7 +867,12 @@ func show_controls() -> void:
 			label(aliases, Rect2(columns[player + 1], y, 253, 41), 17)
 		label(pads[row], Rect2(columns[3], y, 192, 41), 17)
 	label("Esc oder Start öffnet Pause. F11 schaltet Vollbild um.",
-		Rect2(64, 594, 760, 40), 18, TEXT, DIM)
+		Rect2(64, 589, 760, 35), 18, TEXT, DIM)
+	if not fighter_voices.is_empty():
+		var keys := keyboard.voice_shortcuts()
+		var shortcuts := "%s / %s" % [keyboard.key_caption(keys[0]), keyboard.key_caption(keys[1])]
+		label(shortcuts + " spielt die im Kampf angezeigten Stimmen ab.",
+			Rect2(64, 625, 760, 36), 17, TEXT, DIM)
 	button("Tastenbelegung ändern", Rect2(858, 584, 361, 53), show_bindings)
 	back.grab_focus()
 
@@ -655,7 +937,7 @@ func restore_bindings() -> void:
 
 
 func show_selection(kind: String, focus_caption: String = "") -> void:
-	if selection_mode != kind or screen == "home":
+	if selection_mode != kind or screen == "home" or kind == "class_duel":
 		picking = 0
 	selection_mode = kind
 	set_menu("select")
@@ -670,8 +952,12 @@ func show_selection(kind: String, focus_caption: String = "") -> void:
 		"network": "Netzwerkduell",
 		"versus": "Lokal am selben PC",
 	}
-	var detail: String = details[kind]
-	header(title, detail, show_home)
+	var detail: String
+	if kind == "class_duel":
+		detail = "Klassenduell · gegen %s" % fighter_name(class_duel_opponent)
+	else:
+		detail = details[kind]
+	header(title, detail, show_class_duels if kind == "class_duel" else show_home)
 
 	var chosen := selected.x if picking == 0 else selected.y
 	var selected_card: Button
@@ -716,6 +1002,7 @@ func show_selection(kind: String, focus_caption: String = "") -> void:
 		label(names[i], Rect2(x, 518, 102, 28), 13, BOLD, DIM)
 		ribbon(Rect2(x, 553, 92, 5), EDGE)
 		ribbon(Rect2(x, 553, 92 * clampf((values[i] - .75) / .52, .1, 1.0), 5), accent)
+	button("Moves ansehen", Rect2(853, 565, 342, 35), show_move_list.bind(chosen, picking))
 
 	if kind == "versus":
 		button("Spieler 1", Rect2(59, 620, 119, 51), pick_player.bind(0), picking == 0)
@@ -735,6 +1022,8 @@ func show_selection(kind: String, focus_caption: String = "") -> void:
 		button(arena_name(survival_stage_pick) + "  ›", Rect2(59, 620, 223, 51), show_arena_picker.bind("survival"))
 		label("3 Versuche für 5 Wellen", Rect2(307, 624, 410, 43), 17, BOLD, DIM)
 		button("Überleben starten", Rect2(829, 618, 392, 53), begin_survival, true)
+	elif kind == "class_duel":
+		button("Duell starten", Rect2(829, 618, 392, 53), start_class_duel, true)
 	elif kind == "boss_practice":
 		button("Bossprobe starten", Rect2(829, 618, 392, 53), begin_boss_practice, true)
 	elif kind == "network":
@@ -753,6 +1042,39 @@ func show_selection(kind: String, focus_caption: String = "") -> void:
 			return
 	if is_instance_valid(selected_card):
 		selected_card.grab_focus()
+
+
+func show_move_list(id: int, player: int, from_pause: bool = false) -> void:
+	preferences_page("moves", from_pause)
+	var back_action := show_pause if from_pause else show_selection.bind(selection_mode, "Moves ansehen")
+	header("Move-Liste", fighter_name(id), back_action).grab_focus()
+	var profile := catalog.fighters[id]
+	var accent: Color = profile["accent"]
+	style_panel(Rect2(59, 148, 280, 462), PANEL, EDGE)
+	portrait(id, Rect2(83, 168, 230, 268), ui)
+	label("VERSTÄRKTER GRUNDANGRIFF", Rect2(83, 445, 230, 34), 14, BOLD, accent, HORIZONTAL_ALIGNMENT_CENTER)
+	label(ArenaMoves.move_name(profile, profile["focus"]), Rect2(76, 483, 246, 42), 22, DISPLAY,
+		PAPER, HORIZONTAL_ALIGNMENT_CENTER)
+	label("+12 % Reichweite und Schaden", Rect2(75, 526, 249, 38), 13, TEXT, DIM,
+		HORIZONTAL_ALIGNMENT_CENTER)
+	var attack := keyboard.caption(player, 3)
+	var special := keyboard.caption(player, 4)
+	var commands := [attack + "  /  X", "Beim Laufen  " + attack + "  /  X",
+		keyboard.caption(player, 6) + " + " + attack + "  /  ↓ + X",
+		"In der Luft  " + attack + "  /  X", special + "  /  Y",
+		"Nach Treffer  " + special + "  /  Y"]
+	for row in ArenaMoves.KEYS.size():
+		var move := ArenaMoves.KEYS[row]
+		var y := 148 + row * 78
+		style_panel(Rect2(361, y, 858, 70), PANEL, EDGE)
+		if move == profile["focus"] or move == "finisher":
+			ribbon(Rect2(361, y, 3, 70), accent)
+		label(ArenaMoves.move_name(profile, move), Rect2(380, y + 3, 489, 34), 19, BOLD)
+		label(commands[row], Rect2(868, y + 3, 331, 34), 16, BOLD, accent, HORIZONTAL_ALIGNMENT_RIGHT)
+		var help := String(profile["description"] if move == "signature" else ArenaMoves.PURPOSE[move])
+		label(help, Rect2(380, y + 37, 818, 27), 15, TEXT, DIM)
+	label("Wechsle zwischen Angriffen. Wiederholte Treffer mit demselben Move werden schwächer.",
+		Rect2(361, 625, 858, 32), 16, TEXT, DIM)
 
 
 func choose_fighter(id: int) -> void:
@@ -1126,15 +1448,23 @@ func receive_state(state: Dictionary) -> void:
 
 func begin_bout(arena: int, one: int, two: int, mode: String, difficulty: int = 1,
 		stocks: int = ArenaBout.DEFAULT_STOCKS, seconds: float = ArenaBout.MAX_SECONDS) -> void:
+	stop_class_voice()
+	last_bout_voice_at = 0.0
+	prefer_event_voice = true
 	bout = ArenaBout.new(catalog, arena, one, two, mode, difficulty, stocks, seconds)
 	if mode == "practice":
 		bout.practice_behavior = practice_behavior
 		bout.practice_damage = practice_damage
 		bout.reset_position(1, false)
 	view.bout = bout
+	view.spotlight_id = -1
+	view.voice_status_until = 0.0
+	refresh_match_voice_controls()
 	view.match_context = ""
 	if mode == "survival":
 		view.match_context = "ÜBERLEBEN · WELLE %d / %d" % [survival_wave + 1, SURVIVAL_DIFFICULTIES.size()]
+	elif mode == "class_duel":
+		view.match_context = "KLASSENDUELL · " + fighter_name(two).to_upper()
 	elif mode == "tournament":
 		view.match_context = "TURNIER · RUNDE %d / %d" % [tournament_round + 1, TOURNAMENT_ROUNDS]
 	elif selection_mode == "campaign" and chapter > 0 and mode in ["solo", "boss"]:
@@ -1148,6 +1478,7 @@ func begin_bout(arena: int, one: int, two: int, mode: String, difficulty: int = 
 	frame_serial = 0
 	make_ui()
 	change_music("finale" if mode == "boss" else "arena")
+	play_bout_voice(voice_clips.get(VOICE_GREETING), "Servas!")
 
 
 func show_tutorial_finish() -> void:
@@ -1166,6 +1497,8 @@ func show_tutorial_finish() -> void:
 
 
 func show_pause() -> void:
+	stop_class_voice()
+	view.spotlight_id = -1
 	pause_page = ""
 	paused = true
 	make_ui()
@@ -1182,8 +1515,13 @@ func show_pause() -> void:
 	if not online:
 		button("Neuer Lauf" if bout.mode == "survival" else "Neu starten", Rect2(439, 397, 404, 50),
 			begin_survival if bout.mode == "survival" else restart_bout)
-	button("Einstellungen", Rect2(439, 456 if not online else 397, 197, 50), show_settings.bind(true))
-	button("Zum Hauptmenü", Rect2(646, 456 if not online else 397, 197, 50), show_home)
+	if online:
+		button("Einstellungen", Rect2(439, 397, 197, 50), show_settings.bind(true))
+		button("Zum Hauptmenü", Rect2(646, 397, 197, 50), show_home)
+	else:
+		button("Einstellungen", Rect2(408, 456, 146, 50), show_settings.bind(true))
+		button("Moves", Rect2(564, 456, 140, 50), show_move_list.bind(bout.fighters[0].id, 0, true))
+		button("Zum Hauptmenü", Rect2(714, 456, 158, 50), show_home)
 
 
 func show_practice_pause() -> void:
@@ -1200,14 +1538,16 @@ func show_practice_pause() -> void:
 	label("Der Zielwert gilt ab dem nächsten Reset.", Rect2(377, 352, 515, 30), 15, TEXT, DIM)
 	button("Weiter", Rect2(377, 401, 253, 54), resume_bout, true).grab_focus()
 	button("Zurücksetzen", Rect2(646, 401, 254, 54), restart_bout)
-	button("Figurenwahl", Rect2(377, 474, 253, 52), show_selection.bind("practice"))
-	button("Einstellungen", Rect2(646, 474, 254, 52), show_settings.bind(true))
+	button("Figurenwahl", Rect2(377, 474, 164, 52), show_selection.bind("practice"))
+	button("Moves", Rect2(556, 474, 165, 52), show_move_list.bind(bout.fighters[0].id, 0, true))
+	button("Einstellungen", Rect2(736, 474, 164, 52), show_settings.bind(true))
 	button("Zum Hauptmenü", Rect2(377, 546, 523, 48), show_home)
 
 
 func resume_bout() -> void:
 	pause_page = ""
 	paused = false
+	refresh_match_voice_controls()
 	make_ui()
 
 
@@ -1295,7 +1635,11 @@ func show_result() -> void:
 	if bout.mode == "network":
 		rematch_button = action
 		refresh_rematch()
-	var home := button("Zum Hauptmenü", Rect2(422, 440, 436, 50), show_home)
+	var has_duel_list := bout.mode == "class_duel"
+	if has_duel_list:
+		button("Weitere Duelle", Rect2(422, 440, 212, 50), show_class_duels)
+	var home_width := 212 if has_duel_list else 436
+	var home := button("Zum Hauptmenü", Rect2(858 - home_width, 440, home_width, 50), show_home)
 	if enabled:
 		action.grab_focus()
 	else:

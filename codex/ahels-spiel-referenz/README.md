@@ -1,4 +1,4 @@
-# AHELS Arena V4
+# AHELS Arena V5.4
 
 Ein Pixel-Plattform-Fighter mit 24 Klassenfiguren und zwei Lehrern. Treffer erhöhen den Rückstoß. Wer über den Rand fällt, verliert einen Versuch.
 
@@ -14,6 +14,7 @@ Die macOS-App ist ad hoc signiert. Je nach Sicherheitseinstellung braucht sie be
 
 ## Modi
 
+- **Klassenduelle.** Spielt gegen Stefan in der Aula, Lukas in der Werkstatt oder Valentin im Computerraum. Auf den Duellkarten könnt ihr die Aufnahmen anhören. Jeder weitere Klick spielt den nächsten Clip der Figur.
 - **Solo-Kampagne.** Herr Haidenthaler erklärt im Turnsaal alles auf seine Weise. Die Tafel zeigt die richtigen Tasten. Danach folgen Pausenhof, Computerraum, Aula und das Finale gegen Herrn Grimmer. Springt über die Regalwelle, weicht den sichtbaren Kreidelinien aus und nutzt die Pause zum Kontern.
 - **Tutorial.** Die fünf Übungen aus dem Turnsaal sind auch direkt vom Hauptmenü aus erreichbar.
 - **Versus.** Spielt zu zweit am PC oder gegen die CPU. Wählt Figuren, Arena und auf Wunsch unter **Regeln** ein bis fünf Versuche, das Zeitlimit und die CPU-Stufe. Bei Zeitablauf zählen die verbleibenden Versuche, dann der niedrigere Rückstoßwert. Eine Revanche übernimmt dieselbe Arena und dieselben Regeln.
@@ -25,6 +26,20 @@ Die macOS-App ist ad hoc signiert. Je nach Sicherheitseinstellung braucht sie be
 - **Ziele.** Zeigt die auf diesem Gerät erreichten Spielziele.
 
 Pausenhof, Computerraum, Bibliothek, Werkstatt, Dachterrasse, Aula und Physiksaal sind Kampfarenen. Versus und Überleben bieten zusätzlich Zufallsauswahl. Freies Training und Tutorial finden im Turnsaal statt.
+
+### Sechs Moves pro Figur
+
+Öffnet **Moves ansehen** in der Figurenwahl oder **Moves** in der Trainingspause. Angriff am Boden, beim Laufen und in der Luft ergibt jeweils eine andere Aktion. Drückt **Unten und Angriff** gleichzeitig für den Beinfeger. Für einen Ketten-Finisher drückt ihr **Spezial**, solange nach einem Treffer das Finisher-Fenster im HUD steht. Der Finisher und die reguläre Spezialfähigkeit teilen sich die Abklingzeit.
+
+Wechselt zwischen den Angriffen. Wiederholte Treffer mit demselben Grundangriff verlieren an Kraft. Jede Figur hat einen Grundangriff mit zusätzlicher Reichweite und zusätzlichem Schaden.
+
+Die Musik wechselt bei einem knappen Duell mit letzten Versuchen oder ablaufender Uhr.
+
+### Klassenstimmen
+
+Mit Sprachdateien startet jede Runde mit „Servas!“, auch Tutorial, Training und Netzwerk. Wenn jemand einen Versuch verliert, kommt Stefans Knockout-Satz. Bei Lukas (Figur 11) kommt sein undeutlicher Einwurf, ersatzweise Stefan. Auch Trainingsstürze lösen eine Reaktion aus. Weitere Einwürfe wechseln bei Treffern, Spezialaktionen und zwischen Aktionen. Lukas reagiert auch auf Blocks und Valentin auf Projektiltreffer.
+
+Mit **F3** spielt ihr im Kampf die Stimme der eigenen Figur ab, sofern sie eine Aufnahme hat. Sonst spielt die Stimme des Gegenübers, wenn eine verfügbar ist. Bei zwei verschiedenen Stimmen spielt **F4** die zweite. Mehrmaliges Drücken spielt die Ausschnitte der zugehörigen Figur der Reihe nach ab. Die Tasten stehen im Kampf unten links. Belegte Tasten werden für vorhandene Steuerungseinstellungen übersprungen. Die Einstellung **Klassenstimmen** gilt für automatische Einwürfe, Stimmtasten und Hörproben.
 
 ### Standardsteuerung
 
@@ -41,7 +56,7 @@ Pausenhof, Computerraum, Bibliothek, Werkstatt, Dachterrasse, Aula und Physiksaa
 
 ### Netzwerk einrichten
 
-Im LAN verwendet ihr die im Menü angezeigte Host-Adresse und denselben UDP-Port. Der Standardport ist **24738/UDP**. Über das Internet benötigt der Host eine erreichbare IP-Adresse oder einen DNS-Namen und gegebenenfalls eine UDP-Portweiterleitung. Alternativ geht ein gemeinsames virtuelles Netzwerk. Beide Instanzen brauchen V4. In der Netzwerkpause läuft die Runde für das Gegenüber weiter.
+Im LAN verwendet ihr die im Menü angezeigte Host-Adresse und denselben UDP-Port. Der Standardport ist **24738/UDP**. Über das Internet benötigt der Host eine erreichbare IP-Adresse oder einen DNS-Namen und gegebenenfalls eine UDP-Portweiterleitung. Alternativ geht ein gemeinsames virtuelles Netzwerk. Für Netzwerkduelle sind V5 bis V5.4 kompatibel. Die Klassenstimmen werden lokal aus den Dateien des jeweiligen PCs abgespielt. In der Netzwerkpause läuft die Runde für das Gegenüber weiter.
 
 ## Entwickeln und exportieren
 
@@ -55,13 +70,18 @@ Im LAN verwendet ihr die im Menü angezeigte Host-Adresse und denselben UDP-Port
 | `src/duel_link.gd` | LAN-Lobby, Rollen, Start und Synchronisierung |
 | `data/arenas.json` | Arenen, Plattformen, Startpositionen und Vorschautexte |
 | `data/fighters.json` | Figuren, Fähigkeiten und Spielwerte |
+| `src/arena_moves.gd` und `data/move_sets.json` | Angriffsdaten, Finisher und Move-Liste pro Figur |
 
-`python art/make_assets.py` erzeugt die Pixelbilder und Audiodateien mit Python und Pillow. Die beiden Felix- und Jonas-Figuren sind an der Figurennummer erkennbar.
+`python art/make_assets.py` erzeugt die Pixelbilder und Soundeffekte mit Python und Pillow. `python art/soundtrack.py` rendert die vier Instrumentaltracks mit NumPy und FFmpeg. Die beiden Felix- und Jonas-Figuren sind an der Figurennummer erkennbar.
+
+Die optionalen Klassensprachclips lädt das Spiel aus `assets/class_voice/`. Die Dateinamen stehen in `src/catalog.gd`. Das Verzeichnis ist in Git ignoriert. Das Projekt startet auch ohne diese Dateien.
 
 Nach `godot --headless --editor --import` lassen sich die Tests aus dem Projektordner ausführen. Verwendet pro Test ein frisches Profil.
 
 ```sh
 XDG_DATA_HOME="$(mktemp -d)" godot --headless --script res://tests/core_flows.gd
+XDG_DATA_HOME="$(mktemp -d)" godot --headless --script res://tests/combat_moves.gd
+XDG_DATA_HOME="$(mktemp -d)" godot --headless --script res://tests/class_duels.gd
 XDG_DATA_HOME="$(mktemp -d)" godot --headless --script res://tests/playthroughs.gd
 XDG_DATA_HOME="$(mktemp -d)" godot --headless --script res://tests/arena_flows.gd
 XDG_DATA_HOME="$(mktemp -d)" godot --headless --script res://tests/controller_flows.gd

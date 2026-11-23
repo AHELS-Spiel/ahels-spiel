@@ -6,7 +6,7 @@ signal match_started(stage_index: int, one: int, two: int)
 signal state_received(state: Dictionary)
 signal connection_lost(message: String)
 
-const VERSION := 4
+const VERSION := 5
 const DEFAULT_PORT := 24738
 const WAIT_SECONDS := 12.0
 
@@ -245,7 +245,7 @@ func valid_arena(stage_index: int) -> bool:
 
 func send_controls(held: int, pressed: int) -> void:
 	if not hosting and peer != null and round_id > 0:
-		move.rpc_id(1, round_id, held & (ArenaBout.LEFT | ArenaBout.RIGHT))
+		move.rpc_id(1, round_id, held & ArenaBout.HELD_ACTIONS)
 		if pressed != 0:
 			act.rpc_id(1, round_id, pressed & ArenaBout.ACTIONS)
 
@@ -253,7 +253,7 @@ func send_controls(held: int, pressed: int) -> void:
 @rpc("any_peer", "call_remote", "unreliable_ordered", 1)
 func move(serial: int, held: int) -> void:
 	if hosting and serial == round_id and multiplayer.get_remote_sender_id() == guest:
-		remote_held = held & (ArenaBout.LEFT | ArenaBout.RIGHT)
+		remote_held = held & ArenaBout.HELD_ACTIONS
 		last_input_time = Time.get_ticks_msec()
 
 

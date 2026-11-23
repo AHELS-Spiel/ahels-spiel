@@ -17,7 +17,7 @@ func run() -> void:
 	root.add_child(game)
 	game.set_physics_process(false)
 	var args := OS.get_cmdline_user_args()
-	seed(8)
+	seed(4 if "tournament" in args else 8)
 	var passed := false
 	if "tournament" in args:
 		passed = play_tournament()
@@ -165,7 +165,6 @@ func fight() -> bool:
 		saw_warning = saw_warning or bout.boss_warning > 0.0
 		var dx := rival.p.x - hero.p.x
 		var dy := rival.p.y - hero.p.y
-		var target_side := ArenaBout.RIGHT if dx > 0 else ArenaBout.LEFT
 		var safe_x := clampf(rival.p.x, ground.position.x + 30, ground.end.x - 30)
 		var keys := 0
 		if absf(safe_x - hero.p.x) > 45 or hero.facing * dx < -5:
@@ -184,11 +183,17 @@ func fight() -> bool:
 				danger = true
 		if danger and hero.standing:
 			keys |= ArenaBout.JUMP
-		if dx * hero.facing >= -8 and not danger and hero.attack_time <= 0.001:
-			if hero.cooldown <= 0 and absf(dy) < 55 and absf(dx) > 32 and absf(dx) < 280:
+		if dx * hero.facing >= -8 and not danger:
+			if bout.mode != "survival" and hero.combo_window > 0 and hero.cooldown <= 0 and absf(dx) < 116 and absf(dy) < 82:
 				keys |= ArenaBout.SPECIAL
-			elif absf(dy) < 40 and absf(dx) < 78:
-				keys |= ArenaBout.ATTACK
+			elif hero.attack_time <= 0.001:
+				var mid_range := 32.0 if bout.mode == "survival" else 90.0
+				if hero.cooldown <= 0 and absf(dy) < 55 and absf(dx) > mid_range and absf(dx) < 280:
+					keys |= ArenaBout.SPECIAL
+				elif absf(dy) < 44 and absf(dx) < 81:
+					keys |= ArenaBout.ATTACK
+					if bout.mode != "survival" and hero.standing and rival.standing and hero.last_opener == "normal":
+						keys |= ArenaBout.DOWN
 		# Release action buttons on alternating frames, like individual key presses.
 		if frame % 2 == 0:
 			keys &= ~(ArenaBout.ATTACK | ArenaBout.SPECIAL | ArenaBout.JUMP | ArenaBout.DOWN)

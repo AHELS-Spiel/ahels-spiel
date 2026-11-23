@@ -553,30 +553,6 @@ for cue in [
     ('swing',.11,270,130,'noise'),('hit',.18,155,78,'noise'),
     ('special',.29,460,159,'tone'),('out',.38,325,60,'noise'),
     ('success',.42,350,790,'tone'),('boss',.49,110,140,'noise'),
+    ('combo',.25,295,905,'tone'),
 ]:
     chirp(*cue)
-
-def music(name, bpm, roots, tune):
-    step = 60/bpm/2
-    length = int(RATE * step * 32)
-    samples = [0.0]*length
-    rng = Random(12)
-    for n in range(32):
-        start = round(n*step*RATE)
-        bassroot = roots[n//8]
-        lead = bassroot+12+tune[n%8]
-        for i in range(int(step * RATE)):
-            t = i / RATE
-            note = 440*2**((lead-69)/12)
-            bass = 440*2**((bassroot-69)/12)
-            env = min(1,t/.012)*max(0,1-t/(step*.97))
-            body = math.sin(math.tau*bass*t + .16*math.sin(math.tau*bass*2*t))* .19
-            square = (math.sin(math.tau*note*t)+.24*math.sin(math.tau*note*3*t))* (.080 if n%4 in (0,3) else .054)
-            kick = .13*math.sin(math.tau*(110*t-160*t*t))*math.exp(-t*19) if n%4==0 else 0
-            hat = .055*rng.uniform(-1,1)*math.exp(-t*38) if n%2 else 0
-            samples[(start+i)%length] = (body+square)*env+kick+hat
-    save_audio(name,samples)
-
-music('lobby', 112, [48, 45, 50, 43], [7,10,0,5,7,12,2,10])
-music('arena', 144, [45, 43, 48, 41], [0,7,10,7,12,7,3,10])
-music('finale', 154, [43, 46, 42, 41], [0,6,3,0,7,6,10,3])

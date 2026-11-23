@@ -58,6 +58,12 @@ func play_host() -> bool:
 		return false
 	press("Runde starten")
 	if not await wait_until(func() -> bool:
+		return app.bout != null and app.bout.fighters[1].attack_kind == "sweep"
+	):
+		push_error("Beinfeger des Gasts hat den Host nicht erreicht.")
+		return false
+	print("OK Host: Beinfeger des Gasts übertragen")
+	if not await wait_until(func() -> bool:
 		return app.bout != null and app.bout.fighters[1].p.x < 805.0 and app.bout.fighters[1].cooldown > 0.0
 	):
 		push_error("Keine Bewegung und Spezialaktion des Gasts im Host-Match.")
@@ -92,6 +98,11 @@ func play_guest() -> bool:
 	while app.bout.fighters[1].p.x >= 805.0 and Time.get_ticks_msec() < deadline:
 		app.link.send_controls(ArenaBout.LEFT, 0)
 		await physics_frame
+	app.link.send_controls(ArenaBout.DOWN, ArenaBout.DOWN | ArenaBout.ATTACK)
+	if not await wait_until(func() -> bool: return app.bout.fighters[1].attack_kind == "sweep"):
+		push_error("Gast erhielt keine Beinfeger-Animation.")
+		return false
+	await create_timer(0.36).timeout
 	app.link.send_controls(0, ArenaBout.SPECIAL)
 	app.set_physics_process(true)
 	if not await wait_until(func() -> bool: return app.outcome_shown):
