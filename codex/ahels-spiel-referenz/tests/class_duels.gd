@@ -7,11 +7,11 @@ const LUKAS := 10
 class ShortcutApp extends ArenaApp:
 	var heard: Array[int] = []
 
-	func play_class_voice(id: int) -> bool:
+	func play_class_voice(id: int, _event_cue: bool = false) -> float:
 		if not voice_streams.has(id):
-			return false
+			return 0.0
 		heard.append(id)
-		return true
+		return 1.0
 
 var app: ShortcutApp
 var errors := 0
@@ -109,7 +109,7 @@ func check_projectile() -> void:
 
 func check_voice_key() -> void:
 	for id in [STEFAN, LUKAS, VALENTIN]:
-		app.voice_streams[id] = AudioStreamWAV.new()
+		app.voice_streams[id] = [AudioStreamWAV.new()]
 
 	app.begin_bout(4, 0, LUKAS, "class_duel")
 	check(app.match_voice_keys[0] == KEY_F3 and app.match_voice_ids == [LUKAS], "F3 findet die Stimme des Gegners")

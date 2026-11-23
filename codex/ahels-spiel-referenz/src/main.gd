@@ -82,6 +82,8 @@ var quitting := false
 var music: AudioStreamPlayer
 var voice: AudioStreamPlayer
 var voice_streams: Dictionary = {}
+var voice_event_streams: Dictionary = {}
+var next_voice_clip: Dictionary = {}
 var voices_enabled := true
 var last_voice_ms := -10000
 var match_voice_keys: Array[int] = []
@@ -232,9 +234,18 @@ func make_audio() -> void:
 		effects[cue] = player
 	for id in catalog.class_duel_fighters:
 		var profile: Dictionary = catalog.fighters[id]["class_duel"]
-		var clip_path := "res://assets/class_voice/%s" % profile["clip"]
-		if ResourceLoader.exists(clip_path):
-			voice_streams[id] = load(clip_path)
+		var clips: Array[AudioStream] = []
+		for index in profile["clips"].size():
+			var clip_path := "res://assets/class_voice/%s" % profile["clips"][index]
+			if not ResourceLoader.exists(clip_path):
+				continue
+			var stream := load(clip_path) as AudioStream
+			if stream != null:
+				clips.append(stream)
+				if index == 0:
+					voice_event_streams[id] = stream
+		if not clips.is_empty():
+			voice_streams[id] = clips
 	if not voice_streams.is_empty():
 		voice = AudioStreamPlayer.new()
 		add_child(voice)
@@ -326,15 +337,25 @@ func play_sound(cue: String) -> void:
 		player.play()
 
 
-func play_class_voice(id: int) -> bool:
+func play_class_voice(id: int, event_cue: bool = false) -> float:
 	if muted or quitting or DisplayServer.get_name() == "headless" or not voice_streams.has(id):
-		return false
+		return 0.0
+	var clips: Array[AudioStream] = voice_streams[id]
+	var stream: AudioStream
+	if event_cue:
+		stream = voice_event_streams.get(id)
+		if stream == null:
+			return 0.0
+	else:
+		var index := int(next_voice_clip.get(id, 0))
+		stream = clips[index]
+		next_voice_clip[id] = (index + 1) % clips.size()
 	voice.stop()
-	voice.stream = voice_streams[id]
+	voice.stream = stream
 	voice.play()
 	apply_music_level()
 	last_voice_ms = Time.get_ticks_msec()
-	return true
+	return stream.get_length()
 
 
 func refresh_match_voice_controls() -> void:
@@ -367,14 +388,13 @@ func handle_voice_shortcut(key: int) -> bool:
 		view.show_voice_status("Klassenstimmen sind aus." if not voices_enabled else "Ton ist stumm.")
 		return true
 	var id := match_voice_ids[index]
-	if play_class_voice(id):
-		view.show_spotlight(id, spotlight_display_time(id), "Stimme")
+	var clip_number := int(next_voice_clip.get(id, 0)) + 1
+	var seconds := play_class_voice(id)
+	if seconds > 0.0:
+		var total: int = voice_streams[id].size()
+		var caption := "Stimme %d/%d" % [clip_number, total] if total > 1 else "Stimme"
+		view.show_spotlight(id, maxf(seconds, 1.8), caption)
 	return true
-
-
-func spotlight_display_time(id: int) -> float:
-	var stream: AudioStream = voice_streams[id]
-	return maxf(1.8, stream.get_length())
 
 
 func update_match_music() -> void:
@@ -418,8 +438,8 @@ func _physics_process(delta: float) -> void:
 		if paused or id not in catalog.class_duel_fighters or voice_is_playing():
 			continue
 		var play_now := voices_enabled and Time.get_ticks_msec() - last_voice_ms >= 5500
-		var played := play_now and play_class_voice(id)
-		view.show_spotlight(id, spotlight_display_time(id) if played else 1.8)
+		var seconds := play_class_voice(id, true) if play_now else 0.0
+		view.show_spotlight(id, maxf(seconds, 1.8))
 	bout.spotlight_queue.clear()
 	if bout.mode == "training" and bout.tutorial_step == 5 and not heard_lesson and not paused:
 		heard_lesson = true
@@ -618,8 +638,9 @@ func show_class_duels() -> void:
 		label(profile["hint"], Rect2(x + 20, 453, 335, 61), 16, TEXT, PAPER,
 			HORIZONTAL_ALIGNMENT_LEFT, null, true)
 		if voice_streams.has(id):
-			var voice_button := button("Stimme anhören", Rect2(x + 19, 544, 336, 37),
+			var voice_button := button(voice_preview_caption(id), Rect2(x + 19, 544, 336, 37),
 				play_class_voice.bind(id))
+			voice_button.pressed.connect(func() -> void: voice_button.text = voice_preview_caption(id))
 			voice_button.disabled = muted
 			label(profile["voice_note"], Rect2(x + 20, 511, 334, 30), 13, TEXT, DIM)
 		var duel := button("Gegen %s spielen" % fighter_name(id), Rect2(x + 19, 593, 336, 45),
@@ -630,6 +651,13 @@ func show_class_duels() -> void:
 		first_duel.grab_focus()
 	else:
 		back.grab_focus()
+
+
+func voice_preview_caption(id: int) -> String:
+	var total: int = voice_streams[id].size()
+	if total <= 1:
+		return "Stimme anhören"
+	return "Stimme %d/%d anhören" % [int(next_voice_clip.get(id, 0)) + 1, total]
 
 
 func select_class_duel(opponent: int) -> void:

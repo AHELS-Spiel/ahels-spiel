@@ -7,20 +7,23 @@ const BOSS := 25
 const SPRITE_SIZE := Vector2(76, 96)
 const FIELD_SIZE := Vector2(1280, 720)
 
+# The first clip in each list is the event cue. Manual playback uses the whole list.
 const CLASS_DUELS := [
 	{
 		"id": "figur-05", "arena": "aula", "event": "ring_out", "callout": "Ring-out",
-		"clip": "stefan.ogg", "voice_note": "Stimme beim Ring-out",
+		"clips": ["stefan-03.ogg"], "voice_note": "Beim Ring-out",
 		"hint": "Stefan sucht den Nahkampf und setzt dort seinen Schallkreis ein.",
 	},
 	{
 		"id": "figur-11", "arena": "werkstatt", "event": "block", "callout": "Angriff abgewehrt",
-		"clip": "lukas-probe.ogg", "voice_note": "Stimme beim Block · Zuordnung vorläufig",
+		"clips": ["lukas-04.ogg", "lukas-02.ogg", "lukas-06.ogg", "lukas-08.ogg"],
+		"voice_note": "Beim Block",
 		"hint": "Lukas wartet auf deinen Angriff und fängt ihn mit seinem Schutzfeld ab.",
 	},
 	{
 		"id": "figur-10", "arena": "computerraum", "event": "projectile", "callout": "Impulslinie trifft",
-		"clip": "valentin.ogg", "voice_note": "Stimme beim Projektiltreffer",
+		"clips": ["valentin-09.ogg", "valentin-05.ogg", "valentin-07.ogg"],
+		"voice_note": "Beim Projektiltreffer",
 		"hint": "Valentin sucht Abstand und schickt seine Impulslinie quer durch die Arena.",
 	},
 ]
